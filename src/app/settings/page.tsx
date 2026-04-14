@@ -1,6 +1,7 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useTheme } from "next-themes"
 import {
   Settings,
   Trash2,
@@ -73,10 +74,15 @@ function SettingSection({
 }
 
 export default function SettingsPage() {
-  const [theme, setTheme] = useState("system")
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
   const [language, setLanguage] = useState("zh-CN")
   const [dailyReminder, setDailyReminder] = useState(true)
   const [autoSave, setAutoSave] = useState(true)
+
+  useEffect(() => {
+    setMounted(true)
+  }, [])
 
   const resetQuestionStore = useQuestionStore((s) => s.resetFilters)
   const resetInterviewStore = useInterviewStore((s) => s.resetInterview)
@@ -86,17 +92,6 @@ export default function SettingsPage() {
   const handleThemeChange = (value: string | null) => {
     if (!value) return
     setTheme(value)
-    if (value === "dark") {
-      document.documentElement.classList.add("dark")
-      localStorage.setItem("theme", "dark")
-    } else if (value === "light") {
-      document.documentElement.classList.remove("dark")
-      localStorage.setItem("theme", "light")
-    } else {
-      const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-      document.documentElement.classList.toggle("dark", prefersDark)
-      localStorage.removeItem("theme")
-    }
   }
 
   const handleResetAll = () => {
@@ -114,7 +109,13 @@ export default function SettingsPage() {
       resume: useResumeStore.getState(),
       exportDate: new Date().toISOString(),
     }
-    const blob = new Blob([JSON.stringify(data, null, 2)], { type: "application/json" })
+    const jsonString = JSON.stringify(data, (key, value) => {
+      if (value instanceof Set) {
+        return { __type: "Set", value: Array.from(value) }
+      }
+      return value
+    }, 2)
+    const blob = new Blob([jsonString], { type: "application/json" })
     const url = URL.createObjectURL(blob)
     const a = document.createElement("a")
     a.href = url
@@ -130,7 +131,12 @@ export default function SettingsPage() {
     const reader = new FileReader()
     reader.onload = (event) => {
       try {
-        const data = JSON.parse(event.target?.result as string)
+        const data = JSON.parse(event.target?.result as string, (key, value) => {
+          if (value && typeof value === "object" && value.__type === "Set") {
+            return new Set(value.value)
+          }
+          return value
+        })
         if (data.questions) useQuestionStore.setState(data.questions)
         if (data.interview) useInterviewStore.setState(data.interview)
         if (data.jobs) useJobStore.setState(data.jobs)
@@ -163,16 +169,20 @@ export default function SettingsPage() {
           <div className="flex flex-col gap-4">
             <div className="flex items-center justify-between">
               <Label className="text-sm">主题模式</Label>
-              <Select value={theme} onValueChange={handleThemeChange}>
-                <SelectTrigger className="w-32">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="light">浅色</SelectItem>
-                  <SelectItem value="dark">深色</SelectItem>
-                  <SelectItem value="system">跟随系统</SelectItem>
-                </SelectContent>
-              </Select>
+              {mounted ? (
+                <Select value={theme} onValueChange={handleThemeChange}>
+                  <SelectTrigger className="w-32">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="light">浅色</SelectItem>
+                    <SelectItem value="dark">深色</SelectItem>
+                    <SelectItem value="system">跟随系统</SelectItem>
+                  </SelectContent>
+                </Select>
+              ) : (
+                <div className="w-32 h-9 border border-border rounded-md opacity-50" />
+              )}
             </div>
             <div className="flex items-center justify-between">
               <Label className="text-sm">语言</Label>
@@ -240,11 +250,9 @@ export default function SettingsPage() {
             </div>
             <Separator />
             <Dialog>
-              <DialogTrigger>
-                <Button variant="destructive" size="sm">
-                  <Trash2 className="size-4 mr-1" />
-                  清除所有数据
-                </Button>
+              <DialogTrigger render={<Button variant="destructive" size="sm" />}>
+                <Trash2 className="size-4 mr-1" />
+                清除所有数据
               </DialogTrigger>
               <DialogContent>
                 <DialogHeader>

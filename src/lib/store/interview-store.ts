@@ -1,4 +1,5 @@
 import { create } from "zustand";
+import { persist } from "zustand/middleware";
 import {
   type InterviewType,
   type InterviewQuestion,
@@ -112,11 +113,10 @@ function evaluateAnswer(
     if (answerLength > 150) baseScore += criteria.maxScore * 0.1;
     if (answerLength > 300) baseScore += criteria.maxScore * 0.05;
 
-    // 随机浮动（模拟真实评分的不确定性）
-    const randomFactor = (Math.random() - 0.3) * criteria.maxScore * 0.1;
+    // 移除随机浮动以保证结果确定性
     const finalScore = Math.min(
       criteria.maxScore,
-      Math.max(1, Math.round(baseScore + randomFactor))
+      Math.max(1, Math.round(baseScore))
     );
 
     let feedback: string;
@@ -262,8 +262,10 @@ function generateSummary(
 
 // ==================== Store 创建 ====================
 
-export const useInterviewStore = create<InterviewStore>((set, get) => ({
-  // 初始状态
+export const useInterviewStore = create<InterviewStore>()(
+  persist(
+    (set, get) => ({
+      // 初始状态
   status: "idle",
   interviewType: null,
   currentQuestionIndex: 0,
@@ -560,4 +562,7 @@ export const useInterviewStore = create<InterviewStore>((set, get) => ({
   setTyping: (typing: boolean) => {
     set({ isTyping: typing });
   },
+}), {
+  name: "interview-store",
+  partialize: (state) => ({ history: state.history }),
 }));

@@ -2,6 +2,7 @@
 
 import Link from "next/link"
 import { useEffect, useState } from "react"
+import { useHydration } from "@/hooks/use-hydration"
 import {
   BookOpen,
   Mic,
@@ -186,11 +187,12 @@ function DailyChallenge() {
 }
 
 function StudyProgress() {
+  const hydrated = useHydration()
   const getStats = useQuestionStore((s) => s.getStats)
   const stats = getStats()
 
   const totalQuestions = questions.length
-  const completedCount = stats.completed
+  const completedCount = hydrated ? stats.completed : 0
   const overallProgress = totalQuestions > 0 ? Math.round((completedCount / totalQuestions) * 100) : 0
 
   const categoryEntries = Object.entries(stats.categoryProgress)
@@ -244,11 +246,12 @@ function StudyProgress() {
 }
 
 function RecentActivity() {
+  const hydrated = useHydration()
   const { history } = useInterviewStore()
   const { jobList } = useJobStore()
 
-  const recentInterviews = history.slice(0, 3)
-  const recentJobs = jobList.slice(0, 3)
+  const recentInterviews = hydrated ? history.slice(0, 3) : []
+  const recentJobs = hydrated ? jobList.slice(0, 3) : []
 
   const typeLabels: Record<string, string> = {
     technical: "技术面试",
@@ -384,19 +387,20 @@ function QuickTips() {
 }
 
 export default function DashboardPage() {
+  const hydrated = useHydration()
   const getStats = useQuestionStore((s) => s.getStats)
   const stats = getStats()
   const { history } = useInterviewStore()
   const { jobList } = useJobStore()
-  const { personalInfo } = useResumeStore()
+  const { personalInfo, resumeScore } = useResumeStore()
 
-  const completedQuestions = stats.completed
+  const completedQuestions = hydrated ? stats.completed : 0
   const avgInterviewScore =
-    history.length > 0
+    hydrated && history.length > 0
       ? Math.round(history.reduce((sum, h) => sum + h.overallScore, 0) / history.length)
       : 0
-  const offerCount = jobList.filter((j) => j.status === "offered").length
-  const resumeScore = personalInfo.name ? 75 : 0
+  const offerCount = hydrated ? jobList.filter((j) => j.status === "offered").length : 0
+  const finalResumeScore = hydrated ? resumeScore.overall : 0
 
   return (
     <div className="p-4 md:p-6 lg:p-8 flex flex-col gap-6 max-w-7xl mx-auto">
@@ -434,7 +438,7 @@ export default function DashboardPage() {
         />
         <StatCard
           label="简历评分"
-          value={resumeScore > 0 ? `${resumeScore}分` : "未填写"}
+          value={finalResumeScore > 0 ? `${finalResumeScore}分` : "未填写"}
           icon={FileText}
           color="bg-orange-500/10"
         />

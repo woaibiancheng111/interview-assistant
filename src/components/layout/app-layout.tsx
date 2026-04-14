@@ -12,6 +12,7 @@ import {
   Moon,
   Sun,
 } from "lucide-react"
+import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
@@ -126,26 +127,28 @@ function AppSidebar() {
 }
 
 function ThemeToggle() {
-  const [theme, setTheme] = useState<"light" | "dark">("light")
+  const { theme, setTheme } = useTheme()
+  const [mounted, setMounted] = useState(false)
 
   useEffect(() => {
-    const saved = localStorage.getItem("theme") as "light" | "dark" | null
-    const prefersDark = window.matchMedia("(prefers-color-scheme: dark)").matches
-    const initial = saved || (prefersDark ? "dark" : "light")
-    setTheme(initial)
-    document.documentElement.classList.toggle("dark", initial === "dark")
+    setMounted(true)
   }, [])
 
+  if (!mounted) {
+    return <Button variant="ghost" size="icon"><Sun className="size-4" /></Button>
+  }
+
   const toggleTheme = () => {
-    const next = theme === "light" ? "dark" : "light"
-    setTheme(next)
-    localStorage.setItem("theme", next)
-    document.documentElement.classList.toggle("dark", next === "dark")
+    setTheme(theme === "light" ? "dark" : "light")
   }
 
   return (
     <Button variant="ghost" size="icon" onClick={toggleTheme}>
-      {theme === "light" ? <Moon className="size-4" /> : <Sun className="size-4" />}
+      {theme === "dark" || theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches ? (
+        <Moon className="size-4" />
+      ) : (
+        <Sun className="size-4" />
+      )}
     </Button>
   )
 }

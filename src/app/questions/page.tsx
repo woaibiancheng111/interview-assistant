@@ -1,8 +1,9 @@
 "use client";
 
 import { useState, useMemo } from "react";
-import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
+import { useHydration } from "@/hooks/use-hydration";
 import { useQuestionStore } from "@/lib/store/question-store";
 import {
   type Difficulty,
@@ -19,14 +20,9 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
+import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-} from "@/components/ui/dialog";
+
 import {
   Select,
   SelectTrigger,
@@ -40,7 +36,6 @@ import {
   AccordionTrigger,
   AccordionContent,
 } from "@/components/ui/accordion";
-import { Textarea } from "@/components/ui/textarea";
 import {
   Search,
   Filter,
@@ -53,9 +48,6 @@ import {
   Target,
   Flame,
   X,
-  Eye,
-  EyeOff,
-  Lightbulb,
   Code,
 } from "lucide-react";
 
@@ -179,245 +171,9 @@ function QuestionCard({
   );
 }
 
-// ==================== 题目详情弹窗 ====================
-function QuestionDetailDialog({
-  question,
-  open,
-  onOpenChange,
-}: {
-  question: Question | null;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-}) {
-  const [showAnswer, setShowAnswer] = useState(false);
-  const [showHints, setShowHints] = useState(false);
-  const [currentHintIndex, setCurrentHintIndex] = useState(0);
-  const [userNote, setUserNote] = useState("");
-  const [noteSaved, setNoteSaved] = useState(false);
-  const { markQuestion, answerRecords } = useQuestionStore();
-
-  if (!question) return null;
-
-  const record = answerRecords[question.id];
-  const currentStatus = record?.status ?? "none";
-
-  const handleMark = (status: QuestionStatus) => {
-    markQuestion(question.id, status, userNote);
-    setNoteSaved(true);
-    setTimeout(() => setNoteSaved(false), 1500);
-  };
-
-  const handleShowNextHint = () => {
-    if (currentHintIndex < question.hints.length - 1) {
-      setCurrentHintIndex((prev) => prev + 1);
-    }
-  };
-
-  const handleResetHints = () => {
-    setCurrentHintIndex(0);
-    setShowHints(false);
-  };
-
-  // 重置状态
-  const handleOpenChange = (val: boolean) => {
-    if (!val) {
-      setShowAnswer(false);
-      setShowHints(false);
-      setCurrentHintIndex(0);
-      setUserNote(record?.note ?? "");
-      setNoteSaved(false);
-    }
-    onOpenChange(val);
-  };
-
-  return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-hidden flex flex-col">
-        <DialogHeader>
-          <div className="flex items-center gap-2">
-            <Badge
-              variant="secondary"
-              className={difficultyColorMap[question.difficulty]}
-            >
-              {difficultyLabels[question.difficulty]}
-            </Badge>
-            <Badge variant="outline">{question.category}</Badge>
-            <FrequencyStars frequency={question.frequency} />
-          </div>
-          <DialogTitle className="text-lg">{question.title}</DialogTitle>
-          <DialogDescription className="sr-only">
-            {question.title} - {question.category}
-          </DialogDescription>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1 -mx-4 px-4">
-          <div className="flex flex-col gap-4 pb-4">
-            {/* 标签 */}
-            <div className="flex items-center gap-1.5 flex-wrap">
-              {question.tags.map((tag) => (
-                <Badge key={tag} variant="outline" className="text-xs">
-                  {tag}
-                </Badge>
-              ))}
-            </div>
-
-            {/* 题目描述 */}
-            <div>
-              <h3 className="text-sm font-medium mb-2">题目描述</h3>
-              <div className="rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-                {question.content}
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* 提示区域 */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium flex items-center gap-1.5">
-                  <Lightbulb className="size-4 text-yellow-500" />
-                  提示
-                </h3>
-                <div className="flex items-center gap-2">
-                  {!showHints && (
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setShowHints(true)}
-                    >
-                      显示提示
-                    </Button>
-                  )}
-                  {showHints && (
-                    <>
-                      <Button
-                        variant="ghost"
-                        size="sm"
-                        onClick={handleResetHints}
-                      >
-                        重置
-                      </Button>
-                      {currentHintIndex < question.hints.length - 1 && (
-                        <Button
-                          variant="outline"
-                          size="sm"
-                          onClick={handleShowNextHint}
-                        >
-                          下一个提示 ({currentHintIndex + 2}/
-                          {question.hints.length})
-                        </Button>
-                      )}
-                    </>
-                  )}
-                </div>
-              </div>
-              {showHints && (
-                <div className="flex flex-col gap-2">
-                  {question.hints
-                    .slice(0, currentHintIndex + 1)
-                    .map((hint, i) => (
-                      <div
-                        key={i}
-                        className="rounded-lg bg-yellow-50 dark:bg-yellow-900/10 border border-yellow-200 dark:border-yellow-800 p-3 text-sm"
-                      >
-                        <span className="text-yellow-700 dark:text-yellow-400 font-medium">
-                          提示 {i + 1}：
-                        </span>{" "}
-                        {hint}
-                      </div>
-                    ))}
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            {/* 参考答案 */}
-            <div>
-              <div className="flex items-center justify-between mb-2">
-                <h3 className="text-sm font-medium">参考答案</h3>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setShowAnswer(!showAnswer)}
-                >
-                  {showAnswer ? (
-                    <>
-                      <EyeOff className="size-3.5 mr-1" />
-                      隐藏答案
-                    </>
-                  ) : (
-                    <>
-                      <Eye className="size-3.5 mr-1" />
-                      显示答案
-                    </>
-                  )}
-                </Button>
-              </div>
-              {showAnswer && (
-                <div className="rounded-lg bg-muted/50 p-4 text-sm whitespace-pre-wrap">
-                  {question.answer}
-                </div>
-              )}
-            </div>
-
-            <Separator />
-
-            {/* 笔记 */}
-            <div>
-              <h3 className="text-sm font-medium mb-2">我的笔记</h3>
-              <Textarea
-                placeholder="记录你的解题思路和笔记..."
-                value={userNote}
-                onChange={(e) => setUserNote(e.target.value)}
-                className="min-h-[80px] resize-y"
-              />
-            </div>
-
-            {/* 操作按钮 */}
-            <div className="flex items-center gap-2 flex-wrap">
-              <span className="text-sm text-muted-foreground mr-1">
-                标记为：
-              </span>
-              <Button
-                variant={currentStatus === "completed" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleMark("completed")}
-              >
-                <CheckCircle2 className="size-3.5 mr-1" />
-                已掌握
-              </Button>
-              <Button
-                variant={currentStatus === "review" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleMark("review")}
-              >
-                <RotateCcw className="size-3.5 mr-1" />
-                需复习
-              </Button>
-              <Button
-                variant={currentStatus === "none" ? "default" : "outline"}
-                size="sm"
-                onClick={() => handleMark("none")}
-              >
-                <Circle className="size-3.5 mr-1" />
-                未做
-              </Button>
-              {noteSaved && (
-                <span className="text-xs text-green-600 dark:text-green-400">
-                  已保存
-                </span>
-              )}
-            </div>
-          </div>
-        </ScrollArea>
-      </DialogContent>
-    </Dialog>
-  );
-}
-
 // ==================== 主页面 ====================
 export default function QuestionsPage() {
+  const router = useRouter();
   const {
     filters,
     setCategory,
@@ -430,19 +186,15 @@ export default function QuestionsPage() {
     resetFilters,
   } = useQuestionStore();
 
-  const [selectedQuestion, setSelectedQuestion] = useState<Question | null>(
-    null
-  );
-  const [dialogOpen, setDialogOpen] = useState(false);
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
   const filteredQuestions = useMemo(() => getFilteredQuestions(), [filters, getFilteredQuestions]);
   const stats = useMemo(() => getStats(), [getStats]);
   const allTags = useMemo(() => getAllTags(), [getAllTags]);
+  const hydrated = useHydration();
 
   const handleSelectQuestion = (q: Question) => {
-    setSelectedQuestion(q);
-    setDialogOpen(true);
+    router.push(`/questions/${q.id}`);
   };
 
   // 计算各分类的题目数量
@@ -536,26 +288,32 @@ export default function QuestionsPage() {
                   <p className="text-xs text-muted-foreground mb-2">
                     刷题进度
                   </p>
-                  <Progress value={stats.total > 0 ? (stats.completed / stats.total) * 100 : 0}>
+                  <Progress value={hydrated && stats.total > 0 ? (stats.completed / stats.total) * 100 : 0}>
                     <span className="text-xs text-muted-foreground">
-                      {stats.completed}/{stats.total}
+                      {hydrated ? stats.completed : 0}/{stats.total}
                     </span>
                   </Progress>
                   <div className="flex flex-col gap-1 mt-2 text-xs text-muted-foreground">
                     <div className="flex items-center justify-between">
                       <span>简单</span>
                       <span>
-                        {stats.easyCompleted}/
-                        {stats.categoryProgress["数据结构与算法"]?.total ?? 0}
+                        {hydrated ? stats.easyCompleted : 0}/
+                        {stats.total > 0 ? useQuestionStore.getState().allQuestions.filter(q => q.difficulty === 'easy').length : 0}
                       </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>中等</span>
-                      <span>{stats.mediumCompleted}</span>
+                      <span>
+                        {hydrated ? stats.mediumCompleted : 0}/
+                        {stats.total > 0 ? useQuestionStore.getState().allQuestions.filter(q => q.difficulty === 'medium').length : 0}
+                      </span>
                     </div>
                     <div className="flex items-center justify-between">
                       <span>困难</span>
-                      <span>{stats.hardCompleted}</span>
+                      <span>
+                        {hydrated ? stats.hardCompleted : 0}/
+                        {stats.total > 0 ? useQuestionStore.getState().allQuestions.filter(q => q.difficulty === 'hard').length : 0}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -681,12 +439,6 @@ export default function QuestionsPage() {
         </ScrollArea>
       </main>
 
-      {/* 题目详情弹窗 */}
-      <QuestionDetailDialog
-        question={selectedQuestion}
-        open={dialogOpen}
-        onOpenChange={setDialogOpen}
-      />
     </div>
   );
 }

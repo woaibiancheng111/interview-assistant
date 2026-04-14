@@ -15,6 +15,7 @@ import { Badge } from "@/components/ui/badge";
 import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
+import { Markdown } from "@/components/ui/markdown";
 import {
   ArrowLeft,
   Star,
@@ -123,7 +124,7 @@ export default function QuestionDetailPage({
         <BookOpen className="size-12 mb-4 opacity-30" />
         <p className="text-lg font-medium">题目未找到</p>
         <p className="text-sm mt-1">请检查题目 ID 是否正确</p>
-        <Button variant="outline" className="mt-4" render={<Link href="/questions" />}>
+        <Button variant="outline" className="mt-4" render={<Link href="/questions" />} nativeButton={false}>
           返回题库
         </Button>
       </div>
@@ -155,7 +156,7 @@ export default function QuestionDetailPage({
       {/* 顶部导航栏 */}
       <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2">
         <div className="flex items-center gap-2">
-          <Button variant="ghost" size="sm" render={<Link href="/questions" />}>
+          <Button variant="ghost" size="sm" render={<Link href="/questions" />} nativeButton={false}>
             <ArrowLeft className="size-4 mr-1" />
             返回题库
           </Button>
@@ -230,8 +231,8 @@ export default function QuestionDetailPage({
           {/* 题目描述 */}
           <section>
             <h2 className="text-base font-semibold mb-3">题目描述</h2>
-            <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm leading-relaxed whitespace-pre-wrap">
-              {question.content}
+            <div className="rounded-lg border border-border bg-muted/10 p-4">
+              <Markdown content={question.content} />
             </div>
           </section>
 
@@ -321,8 +322,8 @@ export default function QuestionDetailPage({
               </Button>
             </div>
             {showAnswer && (
-              <div className="rounded-lg border border-border bg-muted/30 p-4 text-sm leading-relaxed whitespace-pre-wrap">
-                {question.answer}
+              <div className="rounded-lg border border-border bg-muted/10 p-4">
+                <Markdown content={question.answer} />
               </div>
             )}
           </section>
@@ -379,7 +380,7 @@ export default function QuestionDetailPage({
           {/* 上一题/下一题导航 */}
           <div className="flex items-center justify-between pt-4 pb-8">
             {prevQuestion ? (
-              <Button variant="outline" render={<Link href={`/questions/${prevQuestion.id}`} />}>
+              <Button variant="outline" render={<Link href={`/questions/${prevQuestion.id}`} />} nativeButton={false}>
                 <ChevronLeft className="size-4 mr-1" />
                 {prevQuestion.title}
               </Button>
@@ -387,7 +388,7 @@ export default function QuestionDetailPage({
               <div />
             )}
             {nextQuestion ? (
-              <Button variant="outline" render={<Link href={`/questions/${nextQuestion.id}`} />}>
+              <Button variant="outline" render={<Link href={`/questions/${nextQuestion.id}`} />} nativeButton={false}>
                 {nextQuestion.title}
                 <ChevronRight className="size-4 ml-1" />
               </Button>
