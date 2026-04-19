@@ -183,7 +183,7 @@ export default function QuestionsPage() {
     getFilteredQuestions,
     getStats,
     getAllTags,
-    getFavoriteCount,
+    favorites,
     resetFilters,
   } = useQuestionStore();
 
@@ -192,7 +192,6 @@ export default function QuestionsPage() {
   const filteredQuestions = useMemo(() => getFilteredQuestions(), [filters, getFilteredQuestions]);
   const stats = useMemo(() => getStats(), [getStats]);
   const allTags = useMemo(() => getAllTags(), [getAllTags]);
-  const favoriteCount = useMemo(() => getFavoriteCount(), [getFavoriteCount]);
   const hydrated = useHydration();
 
   const handleSelectQuestion = (q: Question) => {
@@ -207,6 +206,8 @@ export default function QuestionsPage() {
     }
     return counts;
   }, []);
+
+  const favoriteCount = hydrated ? favorites.size : 0;
 
   return (
     <div className="flex h-full">
