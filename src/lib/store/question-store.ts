@@ -17,8 +17,10 @@ export interface AnswerRecord {
   updatedAt: number;
 }
 
+export type CategoryFilter = Category | "all" | "favorites";
+
 interface QuestionFilters {
-  category: Category | "all";
+  category: CategoryFilter;
   difficulty: Difficulty | "all";
   search: string;
   status: QuestionStatus | "all";
@@ -41,7 +43,7 @@ interface QuestionStore {
 
   // 筛选条件
   filters: QuestionFilters;
-  setCategory: (category: Category | "all") => void;
+  setCategory: (category: CategoryFilter) => void;
   setDifficulty: (difficulty: Difficulty | "all") => void;
   setSearch: (search: string) => void;
   setStatus: (status: QuestionStatus | "all") => void;
@@ -55,6 +57,7 @@ interface QuestionStore {
   toggleFavorite: (questionId: string) => void;
   isFavorite: (questionId: string) => boolean;
   getQuestionStatus: (questionId: string) => QuestionStatus;
+  getFavoriteCount: () => number;
 
   // 筛选后的题目列表
   getFilteredQuestions: () => Question[];
@@ -145,12 +148,23 @@ export const useQuestionStore = create<QuestionStore>()(
         return record?.status ?? "none";
       },
 
+      getFavoriteCount: () => {
+        return get().favorites.size;
+      },
+
       getFilteredQuestions: () => {
-        const { allQuestions, filters, answerRecords } = get();
+        const { allQuestions, filters, answerRecords, favorites } = get();
 
         return allQuestions.filter((q) => {
-          // 分类筛选
-          if (filters.category !== "all" && q.category !== filters.category) {
+          // 收藏筛选
+          if (filters.category === "favorites") {
+            if (!favorites.has(q.id)) {
+              return false;
+            }
+          }
+
+          // 分类筛选（非收藏模式时）
+          if (filters.category !== "all" && filters.category !== "favorites" && q.category !== filters.category) {
             return false;
           }
 

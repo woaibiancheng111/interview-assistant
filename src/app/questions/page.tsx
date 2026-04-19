@@ -183,6 +183,7 @@ export default function QuestionsPage() {
     getFilteredQuestions,
     getStats,
     getAllTags,
+    getFavoriteCount,
     resetFilters,
   } = useQuestionStore();
 
@@ -191,6 +192,7 @@ export default function QuestionsPage() {
   const filteredQuestions = useMemo(() => getFilteredQuestions(), [filters, getFilteredQuestions]);
   const stats = useMemo(() => getStats(), [getStats]);
   const allTags = useMemo(() => getAllTags(), [getAllTags]);
+  const favoriteCount = useMemo(() => getFavoriteCount(), [getFavoriteCount]);
   const hydrated = useHydration();
 
   const handleSelectQuestion = (q: Question) => {
@@ -249,6 +251,25 @@ export default function QuestionsPage() {
                   <span className="flex-1">全部题目</span>
                   <span className="text-xs text-muted-foreground">
                     {stats.total}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* 我的收藏 */}
+            <div
+              className={cn(
+                "flex items-center gap-2 rounded-md px-2 py-1.5 text-sm cursor-pointer transition-colors hover:bg-accent",
+                filters.category === "favorites" && "bg-accent font-medium"
+              )}
+              onClick={() => setCategory("favorites")}
+            >
+              <Star className="size-4 flex-shrink-0" />
+              {!sidebarCollapsed && (
+                <>
+                  <span className="flex-1">我的收藏</span>
+                  <span className="text-xs text-muted-foreground">
+                    {favoriteCount}
                   </span>
                 </>
               )}
