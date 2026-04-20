@@ -12,6 +12,8 @@ import {
   Loader2,
   CheckCircle2,
   AlertCircle,
+  XCircle,
+  HelpCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -27,10 +29,21 @@ import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
 import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
+import {
   type InterviewType,
   interviewTypeConfig,
 } from "@/lib/data/interview-questions";
 import { useInterviewStore } from "@/lib/store/interview-store";
+import {
+  useAIStore,
+  createAIService,
+  type STARCheckResult,
+} from "@/lib/store/ai-store";
 
 export default function InterviewSessionPage() {
   const router = useRouter();
@@ -50,10 +63,17 @@ export default function InterviewSessionPage() {
     endInterview,
   } = useInterviewStore();
 
+  const { config } = useAIStore();
+
   const [inputValue, setInputValue] = useState("");
   const [hasSubmitted, setHasSubmitted] = useState(false);
+  const [starCheckResult, setStarCheckResult] = useState<STARCheckResult | null>(null);
+  const [isSTARChecking, setIsSTARChecking] = useState(false);
   const scrollRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
+
+  const isBehavioralInterview = interviewType === "behavioral";
+  const hasAIConfig = config.provider === "ollama" || !!config.apiKey;
 
   // 如果没有进行中的面试，跳转回选择页
   useEffect(() => {
@@ -81,14 +101,61 @@ export default function InterviewSessionPage() {
     }
   }, [isTyping, hasSubmitted]);
 
+  const performSTARCheck = useCallback(async (answer: string, question: string) => {
+    if (!hasAIConfig) {
+      setStarCheckResult({
+        hasSituation: false,
+        hasTask: false,
+        hasAction: false,
+        hasResult: false,
+        score: 0,
+        suggestions: [
+          "请在设置中配置AI服务，以启用STAR原则实时检查功能。",
+          "你可以使用Ollama本地模型或OpenAI API。"
+        ],
+        rawAnalysis: "AI服务未配置，无法进行STAR原则检查。"
+      });
+      return;
+    }
+
+    setIsSTARChecking(true);
+    setStarCheckResult(null);
+
+    try {
+      const service = createAIService(config);
+      const result = await service.checkSTARPrinciple(answer, question);
+      setStarCheckResult(result);
+    } catch (error) {
+      console.error("STAR检查失败:", error);
+      setStarCheckResult({
+        hasSituation: false,
+        hasTask: false,
+        hasAction: false,
+        hasResult: false,
+        score: 0,
+        suggestions: [
+          "STAR检查过程中出现错误，请稍后重试。",
+          "请检查AI服务配置是否正确。"
+        ],
+        rawAnalysis: "检查失败"
+      });
+    } finally {
+      setIsSTARChecking(false);
+    }
+  }, [config, hasAIConfig]);
+
   const handleSubmit = useCallback(() => {
     const trimmed = inputValue.trim();
     if (!trimmed || isTyping || hasSubmitted) return;
 
+    if (isBehavioralInterview && currentQuestion) {
+      performSTARCheck(trimmed, currentQuestion.question);
+    }
+
     submitAnswer(trimmed);
     setInputValue("");
     setHasSubmitted(true);
-  }, [inputValue, isTyping, hasSubmitted, submitAnswer]);
+  }, [inputValue, isTyping, hasSubmitted, submitAnswer, isBehavioralInterview, currentQuestion, performSTARCheck]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === "Enter" && !e.shiftKey) {
@@ -99,6 +166,8 @@ export default function InterviewSessionPage() {
 
   const handleNext = () => {
     setHasSubmitted(false);
+    setStarCheckResult(null);
+    setIsSTARChecking(false);
     nextQuestion();
   };
 
@@ -290,6 +359,133 @@ export default function InterviewSessionPage() {
                 )}
 
                 <Separator />
+
+                {/* STAR原则检查（仅行为面试） */}
+                {isBehavioralInterview && (
+                  <div>
+                    <div className="flex items-center justify-between mb-2">
+                      <p className="text-xs font-medium text-muted-foreground">
+                        STAR原则检查
+                      </p>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <HelpCircle className="size-3.5 text-muted-foreground cursor-help" />
+                          </TooltipTrigger>
+                          <TooltipContent side="bottom" className="max-w-xs">
+                            <p className="text-xs">
+                              STAR原则：Situation（情境）、Task（任务）、Action（行动）、Result（结果）。
+                              行为面试中使用STAR原则回答问题能让你的回答更有条理、更有说服力。
+                            </p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
+
+                    {isSTARChecking ? (
+                      <div className="flex flex-col items-center justify-center py-4 gap-2">
+                        <Loader2 className="size-5 animate-spin text-muted-foreground" />
+                        <p className="text-xs text-muted-foreground">正在分析你的回答...</p>
+                      </div>
+                    ) : starCheckResult ? (
+                      <div className="flex flex-col gap-3">
+                        {/* STAR四个维度 */}
+                        <div className="grid grid-cols-2 gap-2">
+                          {[
+                            { key: "hasSituation", label: "S 情境", value: starCheckResult.hasSituation },
+                            { key: "hasTask", label: "T 任务", value: starCheckResult.hasTask },
+                            { key: "hasAction", label: "A 行动", value: starCheckResult.hasAction },
+                            { key: "hasResult", label: "R 结果", value: starCheckResult.hasResult },
+                          ].map((item) => (
+                            <div
+                              key={item.key}
+                              className={cn(
+                                "flex items-center gap-1.5 px-2 py-1.5 rounded-md border",
+                                item.value
+                                  ? "bg-emerald-50/50 dark:bg-emerald-950/20 border-emerald-200 dark:border-emerald-800"
+                                  : "bg-red-50/50 dark:bg-red-950/20 border-red-200 dark:border-red-800"
+                              )}
+                            >
+                              {item.value ? (
+                                <CheckCircle2 className="size-3.5 text-emerald-600 dark:text-emerald-400" />
+                              ) : (
+                                <XCircle className="size-3.5 text-red-600 dark:text-red-400" />
+                              )}
+                              <span
+                                className={cn(
+                                  "text-xs font-medium",
+                                  item.value
+                                    ? "text-emerald-700 dark:text-emerald-300"
+                                    : "text-red-700 dark:text-red-300"
+                                )}
+                              >
+                                {item.label}
+                              </span>
+                            </div>
+                          ))}
+                        </div>
+
+                        {/* STAR得分 */}
+                        <div className="flex items-center justify-between px-2 py-1.5 rounded-md bg-muted/50">
+                          <span className="text-xs text-muted-foreground">STAR匹配度</span>
+                          <div className="flex items-center gap-2">
+                            <Progress
+                              value={starCheckResult.score * 25}
+                              className="w-24"
+                            />
+                            <Badge
+                              variant={
+                                starCheckResult.score >= 3
+                                  ? "default"
+                                  : starCheckResult.score >= 2
+                                    ? "secondary"
+                                    : "destructive"
+                              }
+                              className="text-[10px]"
+                            >
+                              {starCheckResult.score}/4
+                            </Badge>
+                          </div>
+                        </div>
+
+                        {/* 建议 */}
+                        {starCheckResult.suggestions.length > 0 && (
+                          <div className="rounded-md bg-amber-50/50 dark:bg-amber-950/20 border border-amber-200 dark:border-amber-800 px-2.5 py-2">
+                            <p className="text-xs font-medium text-amber-700 dark:text-amber-300 mb-1.5">
+                              改进建议
+                            </p>
+                            <ul className="flex flex-col gap-1">
+                              {starCheckResult.suggestions.map((suggestion, index) => (
+                                <li key={index} className="text-xs text-amber-600 dark:text-amber-400 flex items-start gap-1.5">
+                                  <span className="mt-0.5 shrink-0">•</span>
+                                  <span>{suggestion}</span>
+                                </li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                      </div>
+                    ) : hasSubmitted ? (
+                      <div className="flex flex-col items-center justify-center py-3 gap-1.5 text-center">
+                        <AlertCircle className="size-4 text-muted-foreground/50" />
+                        <p className="text-xs text-muted-foreground">
+                          {!hasAIConfig
+                            ? "请先配置AI服务以启用STAR检查"
+                            : "等待AI分析完成..."}
+                        </p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col items-center justify-center py-3 gap-1.5 text-center">
+                        <HelpCircle className="size-4 text-muted-foreground/50" />
+                        <p className="text-xs text-muted-foreground">
+                          提交回答后，AI将自动分析是否符合STAR原则
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {isBehavioralInterview && <Separator />}
 
                 {/* 评分标准 */}
                 {currentQuestion && (

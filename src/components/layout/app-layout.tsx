@@ -33,6 +33,7 @@ import {
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
 import { useEffect, useState } from "react"
+import { AIChatWindow, AIChatTrigger } from "@/components/ai/ai-chat-window"
 
 const navItems = [
   { title: "仪表盘", href: "/", icon: LayoutDashboard },
@@ -172,6 +173,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
           <TopBar />
           <main className="flex-1 overflow-auto">{children}</main>
         </SidebarInset>
+        <AIChatWindow />
+        <AIChatTrigger />
       </SidebarProvider>
     </TooltipProvider>
   )

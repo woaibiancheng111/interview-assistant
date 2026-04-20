@@ -1,14 +1,16 @@
 "use client";
 
-import { useState, useMemo, use } from "react";
+import { useState, useMemo, use, useCallback, useEffect } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useQuestionStore, type QuestionStatus } from "@/lib/store/question-store";
+import { useAIStore, createAIService, type ChatMessage } from "@/lib/store/ai-store";
 import {
   type Difficulty,
   difficultyLabels,
 } from "@/lib/data/questions";
+import type { Question } from "@/lib/data/questions";
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -16,6 +18,7 @@ import { Separator } from "@/components/ui/separator";
 import { Textarea } from "@/components/ui/textarea";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Markdown } from "@/components/ui/markdown";
+import { AIChatWindow } from "@/components/ai/ai-chat-window";
 import {
   ArrowLeft,
   Star,
@@ -28,6 +31,8 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  Bot,
+  MessageSquare,
 } from "lucide-react";
 
 // ==================== 难度颜色 ====================
@@ -78,6 +83,20 @@ export default function QuestionDetailPage({
     answerRecords,
   } = useQuestionStore();
 
+  const {
+    config,
+    isChatOpen,
+    setChatOpen,
+    createSession,
+    selectSession,
+    addMessage,
+    sessions,
+    currentSessionId,
+    setLoading,
+    setError,
+    getMessagesByContext,
+  } = useAIStore();
+
   const [showAnswer, setShowAnswer] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [currentHintIndex, setCurrentHintIndex] = useState(0);
@@ -87,6 +106,46 @@ export default function QuestionDetailPage({
   const question = useMemo(
     () => allQuestions.find((q) => q.id === id),
     [allQuestions, id]
+  );
+
+  const contextType = "question" as const;
+  const contextId = id;
+
+  useEffect(() => {
+    if (question) {
+      const existingSession = sessions.find(
+        (s) => s.contextType === contextType && s.contextId === contextId
+      );
+      if (existingSession && currentSessionId !== existingSession.id) {
+        selectSession(existingSession.id);
+      }
+    }
+  }, [question, sessions, currentSessionId, contextId]);
+
+  const handleAIChat = useCallback(() => {
+    if (!question) return;
+
+    const existingSession = sessions.find(
+      (s) => s.contextType === contextType && s.contextId === contextId
+    );
+
+    if (!existingSession) {
+      const sessionId = createSession(contextType, contextId);
+    }
+
+    setChatOpen(true);
+  }, [question, sessions, createSession, setChatOpen, contextId]);
+
+  const customChatHandler = useCallback(
+    async (message: string, history: ChatMessage[]): Promise<string> => {
+      if (!question) {
+        return "抱歉，无法获取当前题目信息。";
+      }
+
+      const aiService = createAIService(config);
+      return await aiService.chatAboutQuestion(question, message, history);
+    },
+    [question, config]
   );
 
   // 查找当前分类下的上一题和下一题
@@ -166,6 +225,14 @@ export default function QuestionDetailPage({
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleAIChat}
+          >
+            <Bot className="size-4 mr-1" />
+            AI教练
+          </Button>
           <Button
             variant="ghost"
             size="sm"

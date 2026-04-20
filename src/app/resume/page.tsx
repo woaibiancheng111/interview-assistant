@@ -18,9 +18,16 @@ import {
   CheckCircle2,
   AlertTriangle,
   LayoutTemplate,
+  Loader2,
+  XCircle,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useResumeStore } from "@/lib/store/resume-store";
+import { useResumeStore, type ResumeState } from "@/lib/store/resume-store";
+import {
+  useAIStore,
+  createAIService,
+  type ResumeOptimizationResult,
+} from "@/lib/store/ai-store";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -1115,15 +1122,437 @@ function ResumePreview() {
   );
 }
 
-/** AI 优化建议面板 */
+// ==================== 简历预览模板 ====================
+
+/** 经典模板 */
+function ClassicPreview() {
+  const { personalInfo, educationList, workExperienceList, projectExperienceList, skillCategories } =
+    useResumeStore();
+
+  return (
+    <div className="bg-card text-card-foreground p-6 text-sm leading-relaxed">
+      {/* 头部 */}
+      <div className="mb-4 text-center">
+        <h1 className="text-2xl font-bold">{personalInfo.name || "你的姓名"}</h1>
+        <div className="mt-1 flex flex-wrap items-center justify-center gap-3 text-xs text-muted-foreground">
+          {personalInfo.email && <span>{personalInfo.email}</span>}
+          {personalInfo.phone && <span>{personalInfo.phone}</span>}
+          {personalInfo.github && <span>{personalInfo.github}</span>}
+          {personalInfo.website && <span>{personalInfo.website}</span>}
+        </div>
+        {personalInfo.summary && (
+          <p className="mt-2 text-xs text-muted-foreground">{personalInfo.summary}</p>
+        )}
+      </div>
+
+      <Separator className="mb-4" />
+
+      {/* 教育经历 */}
+      {educationList.length > 0 && (
+        <div className="mb-4">
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary">
+            教育经历
+          </h2>
+          {educationList.map((edu) => (
+            <div key={edu.id} className="mb-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{edu.school}</span>
+                <span className="text-xs text-muted-foreground">
+                  {edu.startDate} ~ {edu.endDate}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground">
+                {edu.degree} - {edu.major}
+              </div>
+              {edu.description && (
+                <p className="mt-1 text-xs text-muted-foreground">{edu.description}</p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 工作经历 */}
+      {workExperienceList.length > 0 && (
+        <div className="mb-4">
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary">
+            工作经历
+          </h2>
+          {workExperienceList.map((work) => (
+            <div key={work.id} className="mb-2">
+              <div className="flex items-center justify-between">
+                <span className="font-semibold">{work.company}</span>
+                <span className="text-xs text-muted-foreground">
+                  {work.startDate} ~ {work.endDate}
+                </span>
+              </div>
+              <div className="text-xs text-muted-foreground">{work.position}</div>
+              {work.description && (
+                <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
+                  {work.description}
+                </p>
+              )}
+              {work.techStack.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {work.techStack.map((t) => (
+                    <Badge key={t} variant="outline" className="text-[10px] px-1 py-0">
+                      {t}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 项目经历 */}
+      {projectExperienceList.length > 0 && (
+        <div className="mb-4">
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary">
+            项目经历
+          </h2>
+          {projectExperienceList.map((proj) => (
+            <div key={proj.id} className="mb-2">
+              <div className="flex items-center gap-2">
+                <span className="font-semibold">{proj.name}</span>
+                <span className="text-xs text-muted-foreground">| {proj.role}</span>
+              </div>
+              {proj.description && (
+                <p className="mt-1 text-xs text-muted-foreground">{proj.description}</p>
+              )}
+              {proj.achievements.length > 0 && (
+                <ul className="mt-1 list-inside list-disc text-xs text-muted-foreground">
+                  {proj.achievements.map((a, i) => (
+                    <li key={i}>{a}</li>
+                  ))}
+                </ul>
+              )}
+              {proj.techStack.length > 0 && (
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {proj.techStack.map((t) => (
+                    <Badge key={t} variant="outline" className="text-[10px] px-1 py-0">
+                      {t}
+                    </Badge>
+                  ))}
+                </div>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* 技能 */}
+      {skillCategories.length > 0 && (
+        <div>
+          <h2 className="mb-2 text-sm font-bold uppercase tracking-wide text-primary">
+            技能
+          </h2>
+          {skillCategories.map((cat) => (
+            <div key={cat.id} className="mb-1">
+              <span className="font-semibold text-xs">{cat.category}：</span>
+              <span className="text-xs text-muted-foreground">
+                {cat.skills.join("、")}
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 现代模板 - 双栏布局 */
+function ModernPreview() {
+  const { personalInfo, educationList, workExperienceList, projectExperienceList, skillCategories } =
+    useResumeStore();
+
+  return (
+    <div className="bg-card text-card-foreground text-sm leading-relaxed">
+      {/* 左侧栏 */}
+      <div className="bg-primary text-primary-foreground p-6">
+        <h1 className="text-xl font-bold">{personalInfo.name || "你的姓名"}</h1>
+        {personalInfo.summary && (
+          <p className="mt-2 text-xs opacity-80">{personalInfo.summary}</p>
+        )}
+
+        <div className="mt-4 flex flex-col gap-2 text-xs opacity-80">
+          {personalInfo.email && <span>{personalInfo.email}</span>}
+          {personalInfo.phone && <span>{personalInfo.phone}</span>}
+          {personalInfo.github && <span>{personalInfo.github}</span>}
+          {personalInfo.website && <span>{personalInfo.website}</span>}
+        </div>
+
+        {skillCategories.length > 0 && (
+          <div className="mt-6">
+            <h2 className="mb-2 text-xs font-bold uppercase tracking-wider opacity-70">
+              技能
+            </h2>
+            {skillCategories.map((cat) => (
+              <div key={cat.id} className="mb-2">
+                <span className="text-xs font-semibold">{cat.category}</span>
+                <div className="mt-1 flex flex-wrap gap-1">
+                  {cat.skills.map((s) => (
+                    <Badge
+                      key={s}
+                      variant="secondary"
+                      className="border-primary-foreground/30 bg-primary-foreground/10 text-[10px]"
+                    >
+                      {s}
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+
+      {/* 右侧内容 */}
+      <div className="p-6">
+        {educationList.length > 0 && (
+          <div className="mb-4">
+            <h2 className="mb-2 border-b border-border pb-1 text-xs font-bold uppercase tracking-wide text-primary">
+              教育经历
+            </h2>
+            {educationList.map((edu) => (
+              <div key={edu.id} className="mb-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-xs">{edu.school}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {edu.startDate} ~ {edu.endDate}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {edu.degree} - {edu.major}
+                </div>
+              </div>
+            ))}
+          </div>
+        )}
+
+        {workExperienceList.length > 0 && (
+          <div className="mb-4">
+            <h2 className="mb-2 border-b border-border pb-1 text-xs font-bold uppercase tracking-wide text-primary">
+              工作经历
+            </h2>
+            {workExperienceList.map((work) => (
+              <div key={work.id} className="mb-2">
+                <div className="flex items-center justify-between">
+                  <span className="font-semibold text-xs">{work.company}</span>
+                  <span className="text-[10px] text-muted-foreground">
+                    {work.startDate} ~ {work.endDate}
+                  </span>
+                </div>
+                <div className="text-xs text-muted-foreground">{work.position}</div>
+                {work.description && (
+                  <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
+                    {work.description}
+                  </p>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+
+        {projectExperienceList.length > 0 && (
+          <div>
+            <h2 className="mb-2 border-b border-border pb-1 text-xs font-bold uppercase tracking-wide text-primary">
+              项目经历
+            </h2>
+            {projectExperienceList.map((proj) => (
+              <div key={proj.id} className="mb-2">
+                <div className="flex items-center gap-2">
+                  <span className="font-semibold text-xs">{proj.name}</span>
+                  <span className="text-[10px] text-muted-foreground">| {proj.role}</span>
+                </div>
+                {proj.achievements.length > 0 && (
+                  <ul className="mt-1 list-inside list-disc text-xs text-muted-foreground">
+                    {proj.achievements.map((a, i) => (
+                      <li key={i}>{a}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+/** 极简模板 */
+function MinimalPreview() {
+  const { personalInfo, educationList, workExperienceList, projectExperienceList, skillCategories } =
+    useResumeStore();
+
+  return (
+    <div className="bg-card text-card-foreground p-8 text-sm leading-relaxed">
+      <div className="mb-6">
+        <h1 className="text-3xl font-light tracking-wide">
+          {personalInfo.name || "你的姓名"}
+        </h1>
+        <div className="mt-2 flex flex-wrap gap-4 text-xs text-muted-foreground">
+          {personalInfo.email && <span>{personalInfo.email}</span>}
+          {personalInfo.phone && <span>{personalInfo.phone}</span>}
+          {personalInfo.github && <span>{personalInfo.github}</span>}
+          {personalInfo.website && <span>{personalInfo.website}</span>}
+        </div>
+      </div>
+
+      {personalInfo.summary && (
+        <div className="mb-6">
+          <p className="text-xs leading-relaxed text-muted-foreground">
+            {personalInfo.summary}
+          </p>
+        </div>
+      )}
+
+      {educationList.length > 0 && (
+        <div className="mb-6">
+          <h2 className="mb-3 text-xs font-light uppercase tracking-[0.2em] text-muted-foreground">
+            教育
+          </h2>
+          {educationList.map((edu) => (
+            <div key={edu.id} className="mb-3">
+              <div className="flex items-baseline justify-between">
+                <span className="font-light">{edu.school}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {edu.startDate} - {edu.endDate}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">
+                {edu.degree}，{edu.major}
+              </p>
+            </div>
+          ))}
+        </div>
+      )}
+
+      {workExperienceList.length > 0 && (
+        <div className="mb-6">
+          <h2 className="mb-3 text-xs font-light uppercase tracking-[0.2em] text-muted-foreground">
+            工作经历
+          </h2>
+          {workExperienceList.map((work) => (
+            <div key={work.id} className="mb-3">
+              <div className="flex items-baseline justify-between">
+                <span className="font-light">{work.company}</span>
+                <span className="text-[10px] text-muted-foreground">
+                  {work.startDate} - {work.endDate}
+                </span>
+              </div>
+              <p className="text-xs text-muted-foreground">{work.position}</p>
+              {work.description && (
+                <p className="mt-1 whitespace-pre-line text-xs text-muted-foreground">
+                  {work.description}
+                </p>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {projectExperienceList.length > 0 && (
+        <div className="mb-6">
+          <h2 className="mb-3 text-xs font-light uppercase tracking-[0.2em] text-muted-foreground">
+            项目
+          </h2>
+          {projectExperienceList.map((proj) => (
+            <div key={proj.id} className="mb-3">
+              <span className="font-light">{proj.name}</span>
+              <span className="ml-2 text-xs text-muted-foreground">{proj.role}</span>
+              {proj.achievements.length > 0 && (
+                <ul className="mt-1 list-inside list-disc text-xs text-muted-foreground">
+                  {proj.achievements.map((a, i) => (
+                    <li key={i}>{a}</li>
+                  ))}
+                </ul>
+              )}
+            </div>
+          ))}
+        </div>
+      )}
+
+      {skillCategories.length > 0 && (
+        <div>
+          <h2 className="mb-3 text-xs font-light uppercase tracking-[0.2em] text-muted-foreground">
+            技能
+          </h2>
+          <div className="flex flex-wrap gap-2">
+            {skillCategories.flatMap((cat) =>
+              cat.skills.map((s) => (
+                <span key={`${cat.id}-${s}`} className="text-xs text-muted-foreground">
+                  {s}
+                </span>
+              ))
+            )}
+          </div>
+        </div>
+      )}
+    </div>
+  );
+}
+
+/** 简历预览组件 */
+function ResumePreview() {
+  const { selectedTemplate } = useResumeStore();
+
+  return (
+    <div className="mx-auto w-full max-w-[210mm] overflow-hidden rounded-lg border shadow-sm">
+      {selectedTemplate === "classic" && <ClassicPreview />}
+      {selectedTemplate === "modern" && (
+        <div className="grid grid-cols-1 md:grid-cols-[280px_1fr]">
+          <ModernPreview />
+        </div>
+      )}
+      {selectedTemplate === "minimal" && <MinimalPreview />}
+    </div>
+  );
+}
+
+/** AI 优化建议面板 - 支持职位描述对比 */
 function AISuggestionsPanel() {
   const { resumeScore, calculateScore } = useResumeStore();
+  const { config } = useAIStore();
+  const resumeState = useResumeStore();
   const [hasCalculated, setHasCalculated] = useState(false);
+  const [isOptimizing, setIsOptimizing] = useState(false);
+  const [jobDescription, setJobDescription] = useState("");
+  const [optimizationResult, setOptimizationResult] = useState<ResumeOptimizationResult | null>(null);
+
+  const hasAIConfig = config.provider === "ollama" || !!config.apiKey;
 
   const handleAnalyze = useCallback(() => {
     calculateScore();
     setHasCalculated(true);
   }, [calculateScore]);
+
+  const handleOptimizeResume = useCallback(async () => {
+    if (!hasAIConfig) {
+      alert("请先在设置中配置AI服务，才能使用简历优化功能。");
+      return;
+    }
+
+    if (!jobDescription.trim()) {
+      alert("请输入目标职位描述，以便AI进行针对性优化分析。");
+      return;
+    }
+
+    setIsOptimizing(true);
+
+    try {
+      const service = createAIService(config);
+      const result = await service.optimizeResume(resumeState as ResumeState, jobDescription.trim());
+      setOptimizationResult(result);
+    } catch (error) {
+      console.error("简历优化失败:", error);
+      alert("简历优化过程中出现错误，请稍后重试。");
+    } finally {
+      setIsOptimizing(false);
+    }
+  }, [hasAIConfig, jobDescription, config, resumeState]);
 
   useEffect(() => {
     if (hasCalculated) {
@@ -1150,6 +1579,12 @@ function AISuggestionsPanel() {
     return "待完善";
   };
 
+  const getBadgeVariant = (score: number) => {
+    if (score >= 80) return "default";
+    if (score >= 60) return "secondary";
+    return "destructive";
+  };
+
   const scoreItems = [
     { label: "个人信息", score: resumeScore.personalInfo },
     { label: "教育经历", score: resumeScore.education },
@@ -1160,24 +1595,183 @@ function AISuggestionsPanel() {
 
   return (
     <div className="flex flex-col gap-4">
-      <div className="flex items-center justify-between">
-        <h3 className="font-semibold">AI 优化建议</h3>
-        <Button size="sm" onClick={handleAnalyze}>
-          <Sparkles className="mr-2 h-4 w-4" />
-          分析简历
-        </Button>
-      </div>
+      {/* AI优化区域 */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="text-sm flex items-center gap-2">
+            <Sparkles className="h-4 w-4" />
+            AI 简历优化
+          </CardTitle>
+          <p className="text-xs text-muted-foreground">
+            输入目标职位描述，让AI帮你分析简历与职位的匹配度并提供优化建议
+          </p>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-3">
+          <div className="flex flex-col gap-2">
+            <Label htmlFor="job-description">目标职位描述</Label>
+            <Textarea
+              id="job-description"
+              placeholder="粘贴目标岗位的JD（职位描述）...&#10;&#10;例如：&#10;我们正在寻找一位资深前端工程师，要求：&#10;- 3年以上React开发经验&#10;- 熟悉TypeScript、状态管理（Redux/Zustand）&#10;- 有性能优化、大型项目重构经验&#10;- 了解Node.js后端开发优先"
+              value={jobDescription}
+              onChange={(e) => setJobDescription(e.target.value)}
+              className="min-h-[120px] text-xs"
+            />
+          </div>
 
-      {!hasCalculated ? (
-        <Card>
-          <CardContent className="flex flex-col items-center justify-center py-8">
-            <Sparkles className="mb-3 h-10 w-10 text-muted-foreground" />
-            <p className="text-sm text-muted-foreground">
-              点击「分析简历」获取 AI 优化建议
-            </p>
-          </CardContent>
-        </Card>
-      ) : (
+          <div className="flex gap-2">
+            <Button
+              size="sm"
+              onClick={handleOptimizeResume}
+              disabled={isOptimizing || !jobDescription.trim()}
+              className="flex-1"
+            >
+              {isOptimizing ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  优化分析中...
+                </>
+              ) : (
+                <>
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  AI 优化分析
+                </>
+              )}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleAnalyze}
+            >
+              基础评分
+            </Button>
+          </div>
+
+          {!hasAIConfig && (
+            <Alert className="py-2 bg-yellow-50/50 dark:bg-yellow-950/20 border-yellow-200 dark:border-yellow-800">
+              <AlertTriangle className="h-4 w-4 text-yellow-600 dark:text-yellow-400" />
+              <AlertDescription className="text-xs text-yellow-700 dark:text-yellow-300">
+                请先在设置中配置AI服务（Ollama或OpenAI API），以使用AI简历优化功能。
+              </AlertDescription>
+            </Alert>
+          )}
+        </CardContent>
+      </Card>
+
+      {/* AI优化结果 */}
+      {optimizationResult && (
+        <>
+          <Card>
+            <CardContent className="flex flex-col items-center py-4 gap-2">
+              <div className="text-4xl font-bold">
+                <span className={getScoreColor(optimizationResult.overallScore)}>
+                  {optimizationResult.overallScore}
+                </span>
+                <span className="text-lg text-muted-foreground">/100</span>
+              </div>
+              <Badge
+                variant={getBadgeVariant(optimizationResult.overallScore)}
+                className="mt-1"
+              >
+                {getScoreLabel(optimizationResult.overallScore)}
+              </Badge>
+              <div className="flex items-center gap-2 mt-2">
+                <span className="text-xs text-muted-foreground">职位匹配度：</span>
+                <div className="flex items-center gap-2">
+                  <Progress
+                    value={optimizationResult.matchPercentage}
+                    className="w-24"
+                  />
+                  <span className="text-xs font-semibold">
+                    {optimizationResult.matchPercentage}%
+                  </span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 优点 */}
+          {optimizationResult.strengths.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-emerald-600 dark:text-emerald-400 flex items-center gap-2">
+                  <CheckCircle2 className="h-4 w-4" />
+                  简历优点
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-1.5">
+                {optimizationResult.strengths.map((strength, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="text-emerald-500 mt-0.5">•</span>
+                    <span className="text-xs text-muted-foreground">{strength}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 待改进 */}
+          {optimizationResult.weaknesses.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm text-red-600 dark:text-red-400 flex items-center gap-2">
+                  <XCircle className="h-4 w-4" />
+                  待改进之处
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-1.5">
+                {optimizationResult.weaknesses.map((weakness, i) => (
+                  <div key={i} className="flex items-start gap-2">
+                    <span className="text-red-500 mt-0.5">•</span>
+                    <span className="text-xs text-muted-foreground">{weakness}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 优化建议 */}
+          {optimizationResult.suggestions.length > 0 && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <AlertTriangle className="h-4 w-4 text-yellow-500" />
+                  具体优化建议
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="flex flex-col gap-2">
+                {optimizationResult.suggestions.map((suggestion, i) => (
+                  <div key={i} className="rounded-md bg-muted/50 px-3 py-2">
+                    <span className="text-xs text-muted-foreground">{i + 1}.</span>
+                    <span className="text-xs text-muted-foreground ml-1">{suggestion}</span>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          )}
+
+          {/* 优化后内容示例 */}
+          {optimizationResult.optimizedContent && (
+            <Card>
+              <CardHeader className="pb-2">
+                <CardTitle className="text-sm flex items-center gap-2">
+                  <Sparkles className="h-4 w-4 text-primary" />
+                  AI 重写建议
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="rounded-md bg-muted p-3">
+                  <p className="text-xs text-muted-foreground whitespace-pre-wrap">
+                    {optimizationResult.optimizedContent}
+                  </p>
+                </div>
+              </CardContent>
+            </Card>
+          )}
+        </>
+      )}
+
+      {/* 基础评分（当没有AI优化结果时显示） */}
+      {!optimizationResult && hasCalculated && (
         <>
           {/* 总分 */}
           <Card>
@@ -1242,6 +1836,21 @@ function AISuggestionsPanel() {
             </Alert>
           )}
         </>
+      )}
+
+      {/* 初始状态 */}
+      {!hasCalculated && !optimizationResult && (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-8">
+            <Sparkles className="mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">
+              输入职位描述后点击「AI优化分析」
+            </p>
+            <p className="text-xs text-muted-foreground mt-1">
+              或点击「基础评分」查看简单评分
+            </p>
+          </CardContent>
+        </Card>
       )}
     </div>
   );

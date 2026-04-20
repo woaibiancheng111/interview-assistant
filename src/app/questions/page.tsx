@@ -1,16 +1,18 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useCallback, useEffect, useRef } from "react";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useHydration } from "@/hooks/use-hydration";
 import { useQuestionStore } from "@/lib/store/question-store";
+import { useAIStore, createAIService, type SemanticSearchResult } from "@/lib/store/ai-store";
 import {
   type Difficulty,
   type Category,
   type Question,
   difficultyLabels,
   categories,
+  questions as allQuestionsData,
 } from "@/lib/data/questions";
 import type { QuestionStatus } from "@/lib/store/question-store";
 
@@ -22,6 +24,12 @@ import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
 import { Markdown } from "@/components/ui/markdown";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Tooltip,
+  TooltipContent,
+  TooltipProvider,
+  TooltipTrigger,
+} from "@/components/ui/tooltip";
 
 import {
   Select,
@@ -37,6 +45,11 @@ import {
   AccordionContent,
 } from "@/components/ui/accordion";
 import {
+  Tabs,
+  TabsList,
+  TabsTrigger,
+} from "@/components/ui/tabs";
+import {
   Search,
   Filter,
   Star,
@@ -49,6 +62,9 @@ import {
   Flame,
   X,
   Code,
+  Sparkles,
+  Loader2,
+  Info,
 } from "lucide-react";
 
 // ==================== 图标映射 ====================
@@ -105,14 +121,26 @@ function FrequencyStars({ frequency }: { frequency: number }) {
 function QuestionCard({
   question,
   onSelect,
+  semanticScore,
+  semanticReason,
 }: {
   question: Question;
   onSelect: (q: Question) => void;
+  semanticScore?: number;
+  semanticReason?: string;
 }) {
   const { getQuestionStatus, isFavorite, toggleFavorite } =
     useQuestionStore();
   const status = getQuestionStatus(question.id);
   const favorite = isFavorite(question.id);
+
+  const scoreColor = semanticScore
+    ? semanticScore > 0.7
+      ? "text-green-600 dark:text-green-400"
+      : semanticScore > 0.4
+        ? "text-yellow-600 dark:text-yellow-400"
+        : "text-muted-foreground"
+    : "";
 
   return (
     <div
@@ -131,6 +159,24 @@ function QuestionCard({
           >
             {difficultyLabels[question.difficulty]}
           </Badge>
+          {semanticScore !== undefined && (
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Badge
+                    variant="outline"
+                    className={cn("text-xs flex-shrink-0", scoreColor)}
+                  >
+                    <Sparkles className="size-3 mr-1" />
+                    {Math.round(semanticScore * 100)}% 匹配
+                  </Badge>
+                </TooltipTrigger>
+                <TooltipContent>
+                  <p className="text-xs">{semanticReason || "语义匹配"}</p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+          )}
         </div>
         <div className="flex items-center gap-3 mt-1.5">
           <FrequencyStars frequency={question.frequency} />
@@ -186,7 +232,13 @@ export default function QuestionsPage() {
     resetFilters,
   } = useQuestionStore();
 
+  const { config, semanticSearchResults, setSemanticSearchResults, lastSearchQuery, setLastSearchQuery } = useAIStore();
+
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
+  const [searchMode, setSearchMode] = useState<"keyword" | "semantic">("keyword");
+  const [isSemanticSearching, setIsSemanticSearching] = useState(false);
+  const [semanticResults, setSemanticResults] = useState<SemanticSearchResult[]>([]);
+  const searchDebounceRef = useRef<NodeJS.Timeout | null>(null);
 
   const filteredQuestions = useMemo(() => getFilteredQuestions(), [filters, getFilteredQuestions]);
   const stats = useMemo(() => getStats(), [getStats]);
@@ -196,6 +248,65 @@ export default function QuestionsPage() {
   const handleSelectQuestion = (q: Question) => {
     router.push(`/questions/${q.id}`);
   };
+
+  const performSemanticSearch = useCallback(async (query: string) => {
+    if (!query.trim()) {
+      setSemanticResults([]);
+      setLastSearchQuery("");
+      return;
+    }
+
+    setIsSemanticSearching(true);
+    setLastSearchQuery(query);
+
+    try {
+      const aiService = createAIService(config);
+      const results = await aiService.semanticSearch(query, allQuestionsData, 20);
+      setSemanticResults(results);
+      setSemanticSearchResults(results);
+    } catch (error) {
+      console.error("Semantic search failed:", error);
+      setSemanticResults([]);
+    } finally {
+      setIsSemanticSearching(false);
+    }
+  }, [config, setSemanticSearchResults, setLastSearchQuery]);
+
+  const handleSearchChange = useCallback((value: string) => {
+    setSearch(value);
+
+    if (searchMode === "semantic") {
+      if (searchDebounceRef.current) {
+        clearTimeout(searchDebounceRef.current);
+      }
+
+      searchDebounceRef.current = setTimeout(() => {
+        performSemanticSearch(value);
+      }, 300);
+    }
+  }, [searchMode, setSearch, performSemanticSearch]);
+
+  const handleSearchModeChange = useCallback((mode: "keyword" | "semantic") => {
+    setSearchMode(mode);
+    if (mode === "semantic" && filters.search.trim()) {
+      performSemanticSearch(filters.search);
+    }
+  }, [filters.search, performSemanticSearch]);
+
+  const displayQuestions = useMemo(() => {
+    if (searchMode === "keyword" || !filters.search.trim()) {
+      return filteredQuestions.map((q) => ({ question: q }));
+    }
+
+    const questionMap = new Map(allQuestionsData.map((q) => [q.id, q]));
+
+    return semanticResults
+      .map((result) => {
+        const question = questionMap.get(result.questionId);
+        return question ? { question, semanticScore: result.score, semanticReason: result.reason } : null;
+      })
+      .filter((item): item is { question: Question; semanticScore: number; semanticReason: string } => item !== null);
+  }, [searchMode, filters.search, filteredQuestions, semanticResults, allQuestionsData]);
 
   // 计算各分类的题目数量
   const categoryCounts = useMemo(() => {
@@ -326,79 +437,143 @@ export default function QuestionsPage() {
       {/* 主内容区 */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* 顶部筛选栏 */}
-        <div className="flex items-center gap-3 p-3 border-b border-border bg-card flex-wrap">
-          {/* 搜索框 */}
-          <div className="relative flex-1 min-w-[200px] max-w-md">
-            <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
-            <Input
-              placeholder="搜索题目、标签..."
-              value={filters.search}
-              onChange={(e) => setSearch(e.target.value)}
-              className="pl-8"
-            />
-            {filters.search && (
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                className="absolute right-1 top-1/2 -translate-y-1/2 size-6"
-                onClick={() => setSearch("")}
-              >
-                <X className="size-3" />
+        <div className="flex flex-col gap-2 p-3 border-b border-border bg-card">
+          <div className="flex items-center gap-3 flex-wrap">
+            {/* 搜索框 */}
+            <div className="relative flex-1 min-w-[200px] max-w-md">
+              <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
+              <Input
+                placeholder={searchMode === "semantic" ? "语义搜索：输入问题描述..." : "搜索题目、标签..."}
+                value={filters.search}
+                onChange={(e) => handleSearchChange(e.target.value)}
+                className="pl-8 pr-24"
+              />
+              {filters.search && (
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  className="absolute right-12 top-1/2 -translate-y-1/2 size-6"
+                  onClick={() => {
+                    setSearch("");
+                    setSemanticResults([]);
+                  }}
+                >
+                  <X className="size-3" />
+                </Button>
+              )}
+              {isSemanticSearching && (
+                <div className="absolute right-3 top-1/2 -translate-y-1/2">
+                  <Loader2 className="size-4 animate-spin text-muted-foreground" />
+                </div>
+              )}
+            </div>
+
+            {/* 搜索模式切换 */}
+            <TooltipProvider>
+              <Tooltip>
+                <TooltipTrigger asChild>
+                  <Tabs
+                    value={searchMode}
+                    onValueChange={(v) => handleSearchModeChange(v as "keyword" | "semantic")}
+                    className="w-auto"
+                  >
+                    <TabsList className="h-9">
+                      <TabsTrigger value="keyword" className="h-8 px-3 text-xs">
+                        <Search className="size-3.5 mr-1.5" />
+                        关键词
+                      </TabsTrigger>
+                      <TabsTrigger value="semantic" className="h-8 px-3 text-xs">
+                        <Sparkles className="size-3.5 mr-1.5" />
+                        语义
+                      </TabsTrigger>
+                    </TabsList>
+                  </Tabs>
+                </TooltipTrigger>
+                <TooltipContent side="bottom">
+                  <p className="text-xs">
+                    {searchMode === "keyword"
+                      ? "关键词搜索：精确匹配标题、内容和标签"
+                      : "语义搜索：基于含义匹配，支持模糊查询（需配置AI）"}
+                  </p>
+                </TooltipContent>
+              </Tooltip>
+            </TooltipProvider>
+
+            {/* 难度筛选 */}
+            <Select
+              value={filters.difficulty}
+              onValueChange={(v) => setDifficulty(v as Difficulty | "all")}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="难度" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部难度</SelectItem>
+                <SelectItem value="easy">简单</SelectItem>
+                <SelectItem value="medium">中等</SelectItem>
+                <SelectItem value="hard">困难</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* 状态筛选 */}
+            <Select
+              value={filters.status}
+              onValueChange={(v) => setStatus(v as QuestionStatus | "all")}
+            >
+              <SelectTrigger className="w-[100px]">
+                <SelectValue placeholder="状态" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="none">未做</SelectItem>
+                <SelectItem value="completed">已掌握</SelectItem>
+                <SelectItem value="review">需复习</SelectItem>
+              </SelectContent>
+            </Select>
+
+            {/* 重置筛选 */}
+            {(filters.category !== "all" ||
+              filters.difficulty !== "all" ||
+              filters.status !== "all" ||
+              filters.search !== "") && (
+              <Button variant="ghost" size="sm" onClick={() => {
+                resetFilters();
+                setSemanticResults([]);
+              }}>
+                <X className="size-3.5 mr-1" />
+                重置
               </Button>
             )}
+
+            {/* 结果计数 */}
+            <span className="text-sm text-muted-foreground ml-auto">
+              共 {displayQuestions.length} 题
+              {searchMode === "semantic" && filters.search.trim() && (
+                <span className="ml-1 text-xs text-muted-foreground/70">
+                  (语义匹配)
+                </span>
+              )}
+            </span>
           </div>
 
-          {/* 难度筛选 */}
-          <Select
-            value={filters.difficulty}
-            onValueChange={(v) => setDifficulty(v as Difficulty | "all")}
-          >
-            <SelectTrigger className="w-[100px]">
-              <SelectValue placeholder="难度" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部难度</SelectItem>
-              <SelectItem value="easy">简单</SelectItem>
-              <SelectItem value="medium">中等</SelectItem>
-              <SelectItem value="hard">困难</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* 状态筛选 */}
-          <Select
-            value={filters.status}
-            onValueChange={(v) => setStatus(v as QuestionStatus | "all")}
-          >
-            <SelectTrigger className="w-[100px]">
-              <SelectValue placeholder="状态" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="none">未做</SelectItem>
-              <SelectItem value="completed">已掌握</SelectItem>
-              <SelectItem value="review">需复习</SelectItem>
-            </SelectContent>
-          </Select>
-
-          {/* 重置筛选 */}
-          {(filters.category !== "all" ||
-            filters.difficulty !== "all" ||
-            filters.status !== "all" ||
-            filters.search !== "") && (
-            <Button variant="ghost" size="sm" onClick={resetFilters}>
-              <X className="size-3.5 mr-1" />
-              重置
-            </Button>
+          {/* 语义搜索提示 */}
+          {searchMode === "semantic" && (
+            <div className="flex items-center gap-2 text-xs text-muted-foreground px-1">
+              <Info className="size-3.5" />
+              <span>
+                语义搜索会根据问题的含义进行匹配，例如搜索"如何处理高并发"也能找到"秒杀系统设计"相关题目。
+                {!config.apiKey && config.provider === "openai" && (
+                  <span className="text-yellow-600 dark:text-yellow-400 ml-1">
+                    请在设置中配置AI API Key以获得更好的语义搜索效果。
+                  </span>
+                )}
+              </span>
+            </div>
           )}
-
-          {/* 结果计数 */}
-          <span className="text-sm text-muted-foreground ml-auto">
-            共 {filteredQuestions.length} 题
-          </span>
         </div>
 
         {/* 标签筛选 */}
-        {allTags.length > 0 && (
+        {allTags.length > 0 && searchMode === "keyword" && (
           <div className="flex items-center gap-2 px-3 py-2 border-b border-border bg-card overflow-x-auto">
             <span className="text-xs text-muted-foreground flex-shrink-0">
               标签：
@@ -418,18 +593,33 @@ export default function QuestionsPage() {
         {/* 题目列表 */}
         <ScrollArea className="flex-1">
           <div className="p-3">
-            {filteredQuestions.length === 0 ? (
+            {displayQuestions.length === 0 ? (
               <div className="flex flex-col items-center justify-center py-16 text-muted-foreground">
-                <Search className="size-10 mb-3 opacity-30" />
-                <p className="text-sm">没有找到匹配的题目</p>
-                <p className="text-xs mt-1">尝试调整筛选条件</p>
+                {isSemanticSearching ? (
+                  <>
+                    <Loader2 className="size-10 mb-3 animate-spin opacity-50" />
+                    <p className="text-sm">正在进行语义搜索...</p>
+                  </>
+                ) : (
+                  <>
+                    <Search className="size-10 mb-3 opacity-30" />
+                    <p className="text-sm">没有找到匹配的题目</p>
+                    <p className="text-xs mt-1">
+                      {searchMode === "semantic"
+                        ? "尝试使用不同的描述方式，或切换到关键词搜索"
+                        : "尝试调整筛选条件或搜索关键词"}
+                    </p>
+                  </>
+                )}
               </div>
             ) : (
               <div className="flex flex-col gap-2">
-                {filteredQuestions.map((q) => (
+                {displayQuestions.map(({ question, semanticScore, semanticReason }) => (
                   <QuestionCard
-                    key={q.id}
-                    question={q}
+                    key={question.id}
+                    question={question}
+                    semanticScore={semanticScore}
+                    semanticReason={semanticReason}
                     onSelect={handleSelectQuestion}
                   />
                 ))}
