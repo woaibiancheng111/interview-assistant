@@ -41,9 +41,9 @@ import {
 import { useInterviewStore } from "@/lib/store/interview-store";
 import {
   useAIStore,
-  createAIService,
   type STARCheckResult,
 } from "@/lib/store/ai-store";
+import { createAIService } from "@/lib/services/ai-service";
 
 export default function InterviewSessionPage() {
   const router = useRouter();

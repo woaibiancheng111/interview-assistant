@@ -2,7 +2,8 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { cn } from "@/lib/utils";
-import { useAIStore, createAIService, type ChatMessage } from "@/lib/store/ai-store";
+import { useAIStore, type ChatMessage } from "@/lib/store/ai-store";
+import { createAIService } from "@/lib/services/ai-service";
 
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +13,7 @@ import {
   Send,
   Bot,
   User,
-  Minus2,
+  Minus,
   X,
   Loader2,
   MessageSquare,
@@ -259,7 +260,7 @@ export function AIChatWindow({
             className="size-7"
             onClick={() => setChatOpen(false)}
           >
-            <Minus2 className="size-3.5" />
+            <Minus className="size-3.5" />
           </Button>
           <Button
             variant="ghost"

@@ -5,7 +5,8 @@ import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useHydration } from "@/hooks/use-hydration";
 import { useQuestionStore } from "@/lib/store/question-store";
-import { useAIStore, createAIService, type SemanticSearchResult } from "@/lib/store/ai-store";
+import { useAIStore, type SemanticSearchResult } from "@/lib/store/ai-store";
+import { createAIService } from "@/lib/services/ai-service";
 import {
   type Difficulty,
   type Category,

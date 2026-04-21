@@ -55,7 +55,8 @@ import { useQuestionStore } from "@/lib/store/question-store"
 import { useInterviewStore } from "@/lib/store/interview-store"
 import { useJobStore } from "@/lib/store/job-store"
 import { useResumeStore } from "@/lib/store/resume-store"
-import { useAIStore, createAIService, type AIModelProvider } from "@/lib/store/ai-store"
+import { useAIStore, type AIModelProvider } from "@/lib/store/ai-store"
+import { createAIService } from "@/lib/services/ai-service"
 
 function SettingSection({
   icon: Icon,

@@ -25,9 +25,9 @@ import { cn } from "@/lib/utils";
 import { useResumeStore, type ResumeState } from "@/lib/store/resume-store";
 import {
   useAIStore,
-  createAIService,
   type ResumeOptimizationResult,
 } from "@/lib/store/ai-store";
+import { createAIService } from "@/lib/services/ai-service";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";

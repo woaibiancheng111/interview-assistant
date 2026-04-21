@@ -5,7 +5,8 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useQuestionStore, type QuestionStatus } from "@/lib/store/question-store";
-import { useAIStore, createAIService, type ChatMessage } from "@/lib/store/ai-store";
+import { useAIStore, type ChatMessage } from "@/lib/store/ai-store";
+import { createAIService } from "@/lib/services/ai-service";
 import {
   type Difficulty,
   difficultyLabels,
