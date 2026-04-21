@@ -195,7 +195,9 @@ function StudyProgress() {
   const completedCount = hydrated ? stats.completed : 0
   const overallProgress = totalQuestions > 0 ? Math.round((completedCount / totalQuestions) * 100) : 0
 
-  const categoryEntries = Object.entries(stats.categoryProgress)
+  const categoryEntries = hydrated
+    ? Object.entries(stats.categoryProgress)
+    : []
 
   return (
     <Card>
@@ -223,15 +225,27 @@ function StudyProgress() {
 
         <div className="flex flex-col gap-3">
           <span className="text-xs font-medium text-muted-foreground">分类进度</span>
-          {categoryEntries.slice(0, 5).map(([name, cat]) => (
-            <div key={name} className="flex flex-col gap-1">
-              <div className="flex items-center justify-between text-xs">
-                <span className="truncate">{name}</span>
-                <span className="text-muted-foreground">{cat.completed}/{cat.total}</span>
+          {categoryEntries.length === 0 ? (
+            Array.from({ length: 5 }).map((_, i) => (
+              <div key={i} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="truncate text-muted-foreground/50">加载中...</span>
+                  <span className="text-muted-foreground/50">0/0</span>
+                </div>
+                <Progress value={0} className="h-1.5 opacity-30" />
               </div>
-              <Progress value={cat.total > 0 ? (cat.completed / cat.total) * 100 : 0} className="h-1.5" />
-            </div>
-          ))}
+            ))
+          ) : (
+            categoryEntries.slice(0, 5).map(([name, cat]) => (
+              <div key={name} className="flex flex-col gap-1">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="truncate">{name}</span>
+                  <span className="text-muted-foreground">{cat.completed}/{cat.total}</span>
+                </div>
+                <Progress value={cat.total > 0 ? (cat.completed / cat.total) * 100 : 0} className="h-1.5" />
+              </div>
+            ))
+          )}
         </div>
 
         <Link href="/questions">
