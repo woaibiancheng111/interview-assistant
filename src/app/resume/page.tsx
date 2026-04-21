@@ -51,6 +51,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 // ==================== 常量 ====================
 
@@ -2142,15 +2150,23 @@ export default function ResumePage() {
                   <ChevronLeft className="mr-2 h-4 w-4" />
                   上一步
                 </Button>
-                <Button
-                  onClick={() =>
-                    setActiveStep(Math.min(STEPS.length - 1, activeStep + 1))
-                  }
-                  disabled={activeStep === STEPS.length - 1}
-                >
-                  下一步
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
+                {activeStep === STEPS.length - 1 ? (
+                  <Button
+                    onClick={() => setActiveView("preview")}
+                  >
+                    去预览
+                    <Eye className="ml-2 h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() =>
+                      setActiveStep(Math.min(STEPS.length - 1, activeStep + 1))
+                    }
+                  >
+                    下一步
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
 
