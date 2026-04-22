@@ -63,6 +63,42 @@ export interface ResumeTemplate {
   description: string;
 }
 
+// ==================== 就业意向 ====================
+
+export interface JobIntent {
+  desiredPositions: string[];
+  desiredLocations: string[];
+  salaryRange: string;
+  employmentType: string[];
+  industries: string[];
+  keySkills: string[];
+  careerGoals: string;
+  availability: string;
+}
+
+// ==================== 匹配结果 ====================
+
+export interface MatchDetail {
+  category: string;
+  score: number;
+  maxScore: number;
+  matchedItems: string[];
+  missingItems: string[];
+  explanation: string;
+}
+
+export interface JobMatchResult {
+  jobId: string;
+  companyName: string;
+  position: string;
+  overallScore: number;
+  overallPercentage: number;
+  details: MatchDetail[];
+  suggestions: string[];
+  strengths: string[];
+  gaps: string[];
+}
+
 export interface ResumeState {
   // 数据
   personalInfo: PersonalInfo;
@@ -72,6 +108,8 @@ export interface ResumeState {
   skillCategories: SkillCategory[];
   resumeScore: ResumeScore;
   selectedTemplate: string;
+  jobIntent: JobIntent;
+  matchResults: JobMatchResult[];
 
   // 个人信息操作
   updatePersonalInfo: (info: Partial<PersonalInfo>) => void;
@@ -102,6 +140,19 @@ export interface ResumeState {
   // 模板
   setTemplate: (templateId: string) => void;
 
+  // 就业意向操作
+  updateJobIntent: (intent: Partial<JobIntent>) => void;
+
+  // 匹配功能
+  matchWithJobs: (jobs: Array<{
+    id: string;
+    companyName: string;
+    position: string;
+    location: string;
+    salary: string;
+    notes: string;
+  }>) => JobMatchResult[];
+
   // 重置
   resetResume: () => void;
 }
@@ -125,6 +176,17 @@ const defaultScore: ResumeScore = {
   projectExperience: 0,
   skills: 0,
   suggestions: [],
+};
+
+const defaultJobIntent: JobIntent = {
+  desiredPositions: [],
+  desiredLocations: [],
+  salaryRange: "",
+  employmentType: [],
+  industries: [],
+  keySkills: [],
+  careerGoals: "",
+  availability: "",
 };
 
 const generateId = () => Math.random().toString(36).substring(2, 11);
@@ -248,6 +310,348 @@ function calculateResumeScore(state: ResumeState): ResumeScore {
   };
 }
 
+// ==================== 匹配算法 ====================
+
+function normalizeText(text: string): string {
+  return text.toLowerCase().trim();
+}
+
+function containsAny(source: string, targets: string[]): boolean {
+  const normalized = normalizeText(source);
+  return targets.some((t) => normalized.includes(normalizeText(t)));
+}
+
+function extractKeywords(text: string): string[] {
+  if (!text) return [];
+  const keywords = text.split(/[\s,，、。！？；：""''（）\(\)\[\]\-]+/).filter((w) => w.length >= 2);
+  return [...new Set(keywords.map(normalizeText))];
+}
+
+function calculateSkillMatch(
+  resumeSkills: string[],
+  jobKeywords: string[],
+  desiredSkills: string[]
+): MatchDetail {
+  const allResumeSkills = resumeSkills.map(normalizeText);
+  const allDesiredSkills = desiredSkills.map(normalizeText);
+  const combinedResumeSkills = [...new Set([...allResumeSkills, ...allDesiredSkills])];
+
+  const matched: string[] = [];
+  const missing: string[] = [];
+
+  jobKeywords.forEach((keyword) => {
+    const normKeyword = normalizeText(keyword);
+    const isMatched = combinedResumeSkills.some((skill) => skill.includes(normKeyword) || normKeyword.includes(skill));
+    if (isMatched) {
+      matched.push(keyword);
+    } else {
+      missing.push(keyword);
+    }
+  });
+
+  const score = matched.length;
+  const maxScore = Math.max(jobKeywords.length, 1);
+
+  return {
+    category: "技能匹配",
+    score,
+    maxScore,
+    matchedItems: matched,
+    missingItems: missing,
+    explanation: matched.length > 0
+      ? `你的技能中有 ${matched.length} 项与岗位要求匹配`
+      : "未找到与岗位要求匹配的技能",
+  };
+}
+
+function calculatePositionMatch(
+  desiredPositions: string[],
+  jobPosition: string
+): MatchDetail {
+  const matched: string[] = [];
+  const missing: string[] = [];
+
+  if (desiredPositions.length === 0) {
+    return {
+      category: "职位匹配",
+      score: 1,
+      maxScore: 2,
+      matchedItems: [],
+      missingItems: ["未设置意向职位"],
+      explanation: "建议设置意向职位以获得更准确的匹配",
+    };
+  }
+
+  const jobNorm = normalizeText(jobPosition);
+  let isMatched = false;
+
+  desiredPositions.forEach((pos) => {
+    const posNorm = normalizeText(pos);
+    if (jobNorm.includes(posNorm) || posNorm.includes(jobNorm)) {
+      matched.push(pos);
+      isMatched = true;
+    } else {
+      missing.push(pos);
+    }
+  });
+
+  return {
+    category: "职位匹配",
+    score: isMatched ? 2 : 0,
+    maxScore: 2,
+    matchedItems: matched,
+    missingItems: missing,
+    explanation: isMatched
+      ? `该职位与你的意向职位「${matched.join("、")}」匹配`
+      : `该职位与你的意向职位不匹配`,
+  };
+}
+
+function calculateLocationMatch(
+  desiredLocations: string[],
+  jobLocation: string
+): MatchDetail {
+  const matched: string[] = [];
+  const missing: string[] = [];
+
+  if (desiredLocations.length === 0 || !jobLocation) {
+    return {
+      category: "地点匹配",
+      score: 1,
+      maxScore: 2,
+      matchedItems: [],
+      missingItems: desiredLocations.length === 0 ? ["未设置意向地点"] : ["岗位未标注地点"],
+      explanation: "地点信息不完整",
+    };
+  }
+
+  const jobLocNorm = normalizeText(jobLocation);
+  let isMatched = false;
+
+  desiredLocations.forEach((loc) => {
+    const locNorm = normalizeText(loc);
+    if (jobLocNorm.includes(locNorm) || locNorm.includes(jobLocNorm)) {
+      matched.push(loc);
+      isMatched = true;
+    } else {
+      missing.push(loc);
+    }
+  });
+
+  // 特殊处理：远程、异地
+  const remoteKeywords = ["远程", "异地", "全国"];
+  const isRemote = remoteKeywords.some((k) =>
+    desiredLocations.some((l) => normalizeText(l).includes(k))
+  );
+
+  if (isRemote) {
+    return {
+      category: "地点匹配",
+      score: 2,
+      maxScore: 2,
+      matchedItems: ["接受远程/异地"],
+      missingItems: [],
+      explanation: "你接受远程或异地工作，地点不限制",
+    };
+  }
+
+  return {
+    category: "地点匹配",
+    score: isMatched ? 2 : 0,
+    maxScore: 2,
+    matchedItems: matched,
+    missingItems: missing,
+    explanation: isMatched
+      ? `工作地点「${jobLocation}」与你的意向地点匹配`
+      : `工作地点「${jobLocation}」与你的意向地点不匹配`,
+  };
+}
+
+function calculateExperienceMatch(
+  workExperienceList: WorkExperience[],
+  projectExperienceList: ProjectExperience[],
+  jobPosition: string,
+  jobKeywords: string[]
+): MatchDetail {
+  const matched: string[] = [];
+  const missing: string[] = [];
+  let score = 0;
+  const maxScore = 3;
+
+  // 检查工作经历数量
+  if (workExperienceList.length > 0) {
+    score += 1;
+    matched.push(`有 ${workExperienceList.length} 份工作经历`);
+  } else {
+    missing.push("暂无正式工作经历");
+  }
+
+  // 检查项目经历数量
+  if (projectExperienceList.length > 0) {
+    score += 1;
+    matched.push(`有 ${projectExperienceList.length} 个项目经历`);
+  } else {
+    missing.push("暂无项目经历");
+  }
+
+  // 检查经历中的相关职位/技术
+  const allTechStacks: string[] = [];
+  const allPositions: string[] = [];
+
+  workExperienceList.forEach((work) => {
+    allTechStacks.push(...work.techStack);
+    allPositions.push(work.position);
+  });
+
+  projectExperienceList.forEach((proj) => {
+    allTechStacks.push(...proj.techStack);
+    allPositions.push(proj.role);
+  });
+
+  const uniqueTechs = [...new Set(allTechStacks.map(normalizeText))];
+  const relatedTechs: string[] = [];
+
+  jobKeywords.forEach((keyword) => {
+    const normKeyword = normalizeText(keyword);
+    const isRelated = uniqueTechs.some((tech) =>
+      tech.includes(normKeyword) || normKeyword.includes(tech)
+    );
+    if (isRelated) {
+      relatedTechs.push(keyword);
+    }
+  });
+
+  if (relatedTechs.length > 0) {
+    score += 1;
+    matched.push(`相关技术栈：${relatedTechs.join("、")}`);
+  } else {
+    missing.push("未找到与岗位相关的技术经历");
+  }
+
+  return {
+    category: "经验匹配",
+    score,
+    maxScore,
+    matchedItems: matched,
+    missingItems: missing,
+    explanation: score >= 2
+      ? "你的项目和工作经历与该岗位有较好的相关性"
+      : "建议增加相关项目或工作经验",
+  };
+}
+
+function calculateMatchResult(
+  state: ResumeState,
+  job: {
+    id: string;
+    companyName: string;
+    position: string;
+    location: string;
+    salary: string;
+    notes: string;
+  }
+): JobMatchResult {
+  const { jobIntent, workExperienceList, projectExperienceList, skillCategories } = state;
+
+  // 从简历提取所有技能
+  const resumeSkills: string[] = [];
+  skillCategories.forEach((cat) => {
+    resumeSkills.push(...cat.skills);
+  });
+
+  // 从岗位信息提取关键词
+  const jobText = `${job.position} ${job.location} ${job.notes}`;
+  const jobKeywords = extractKeywords(jobText);
+
+  // 添加常见技术关键词到关键词列表（如果在岗位描述中出现）
+  const commonTechKeywords = [
+    "react", "vue", "angular", "node", "typescript", "javascript", "python",
+    "java", "go", "rust", "c++", "c#", "php", "swift", "kotlin",
+    "mysql", "postgresql", "mongodb", "redis", "oracle", "sql",
+    "docker", "kubernetes", "k8s", "aws", "阿里云", "腾讯云",
+    "前端", "后端", "全栈", "算法", "架构", "测试", "运维",
+    "react native", "flutter", "小程序", "ios", "android",
+  ];
+
+  const jobNormText = normalizeText(jobText);
+  commonTechKeywords.forEach((tech) => {
+    if (jobNormText.includes(tech) && !jobKeywords.includes(tech)) {
+      jobKeywords.push(tech);
+    }
+  });
+
+  // 计算各维度匹配
+  const skillMatch = calculateSkillMatch(resumeSkills, jobKeywords, jobIntent.keySkills);
+  const positionMatch = calculatePositionMatch(jobIntent.desiredPositions, job.position);
+  const locationMatch = calculateLocationMatch(jobIntent.desiredLocations, job.location);
+  const experienceMatch = calculateExperienceMatch(
+    workExperienceList,
+    projectExperienceList,
+    job.position,
+    jobKeywords
+  );
+
+  const details = [skillMatch, positionMatch, locationMatch, experienceMatch];
+
+  // 计算总分
+  const totalScore = details.reduce((sum, d) => sum + d.score, 0);
+  const totalMax = details.reduce((sum, d) => sum + d.maxScore, 0);
+  const overallPercentage = totalMax > 0 ? Math.round((totalScore / totalMax) * 100) : 0;
+
+  // 生成建议
+  const suggestions: string[] = [];
+  const strengths: string[] = [];
+  const gaps: string[] = [];
+
+  // 技能建议
+  if (skillMatch.matchedItems.length > 0) {
+    strengths.push(`技能匹配：${skillMatch.matchedItems.slice(0, 5).join("、")}`);
+  }
+  if (skillMatch.missingItems.length > 0) {
+    gaps.push(`建议学习：${skillMatch.missingItems.slice(0, 5).join("、")}`);
+    if (skillMatch.missingItems.length > 0) {
+      suggestions.push(`该岗位要求的 ${skillMatch.missingItems.slice(0, 3).join("、")} 等技能在你的简历中未体现，建议补充相关项目经验或学习这些技术。`);
+    }
+  }
+
+  // 经验建议
+  if (experienceMatch.score < experienceMatch.maxScore) {
+    if (experienceMatch.missingItems.length > 0) {
+      suggestions.push(`建议在简历中突出与 ${job.position} 相关的项目经验和技术栈。`);
+    }
+  } else {
+    strengths.push("项目和工作经历与岗位高度相关");
+  }
+
+  // 地点建议
+  if (locationMatch.score === 0 && jobIntent.desiredLocations.length > 0) {
+    suggestions.push(`该岗位地点「${job.location}」不在你的意向地点范围内，可考虑是否接受异地工作或寻找其他地点的机会。`);
+  }
+
+  // 总体建议
+  if (overallPercentage >= 80) {
+    suggestions.unshift("你的简历与该岗位匹配度很高，建议重点准备面试！");
+  } else if (overallPercentage >= 60) {
+    suggestions.unshift("你的简历与该岗位有一定匹配度，可以针对性优化后投递。");
+  } else if (overallPercentage >= 40) {
+    suggestions.unshift("该岗位与你的匹配度一般，建议先补充相关技能或项目经验。");
+  } else {
+    suggestions.unshift("该岗位与你的匹配度较低，建议寻找更符合你背景的机会。");
+  }
+
+  return {
+    jobId: job.id,
+    companyName: job.companyName,
+    position: job.position,
+    overallScore: totalScore,
+    overallPercentage,
+    details,
+    suggestions,
+    strengths,
+    gaps,
+  };
+}
+
 // ==================== Store ====================
 
 export const useResumeStore = create<ResumeState>()(
@@ -260,6 +664,8 @@ export const useResumeStore = create<ResumeState>()(
       skillCategories: [],
       resumeScore: defaultScore,
       selectedTemplate: "classic",
+      jobIntent: defaultJobIntent,
+      matchResults: [],
 
       // 个人信息
       updatePersonalInfo: (info) =>
@@ -343,6 +749,21 @@ export const useResumeStore = create<ResumeState>()(
       // 模板
       setTemplate: (templateId) => set({ selectedTemplate: templateId }),
 
+      // 就业意向
+      updateJobIntent: (intent) =>
+        set((state) => ({
+          jobIntent: { ...state.jobIntent, ...intent },
+        })),
+
+      // 匹配功能
+      matchWithJobs: (jobs) => {
+        const state = get();
+        const results = jobs.map((job) => calculateMatchResult(state, job));
+        results.sort((a, b) => b.overallPercentage - a.overallPercentage);
+        set({ matchResults: results });
+        return results;
+      },
+
       // 重置
       resetResume: () =>
         set({
@@ -353,6 +774,8 @@ export const useResumeStore = create<ResumeState>()(
           skillCategories: [],
           resumeScore: defaultScore,
           selectedTemplate: "classic",
+          jobIntent: defaultJobIntent,
+          matchResults: [],
         }),
     }),
     {
