@@ -18,7 +18,19 @@ import {
   CheckCircle2,
   AlertTriangle,
   LayoutTemplate,
+  Target,
+  MapPin,
+  DollarSign,
+  Clock,
+  Zap,
+  X,
+  ArrowRight,
+  Check,
+  Lightbulb,
+  AlertCircle,
 } from "lucide-react";
+import { useJobStore } from "@/lib/store/job-store";
+import type { JobMatchResult } from "@/lib/store/resume-store";
 import { cn } from "@/lib/utils";
 import { useResumeStore } from "@/lib/store/resume-store";
 
@@ -39,6 +51,14 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogFooter,
+  DialogClose,
+} from "@/components/ui/dialog";
 
 // ==================== 常量 ====================
 
@@ -48,6 +68,7 @@ const STEPS = [
   { id: "work", label: "工作经历", icon: Briefcase },
   { id: "project", label: "项目经历", icon: FolderGit2 },
   { id: "skills", label: "技能列表", icon: Wrench },
+  { id: "intent", label: "就业意向", icon: Target },
 ];
 
 const TEMPLATES = [
@@ -77,6 +98,106 @@ const SKILL_CATEGORY_PRESETS = [
   "数据库",
   "工具与平台",
   "其他技能",
+];
+
+// ==================== 就业意向常量 ====================
+
+const POSITION_PRESETS = [
+  "前端开发工程师",
+  "后端开发工程师",
+  "全栈开发工程师",
+  "Java开发工程师",
+  "Python开发工程师",
+  "Go开发工程师",
+  "Node.js开发工程师",
+  "React开发工程师",
+  "Vue开发工程师",
+  "iOS开发工程师",
+  "Android开发工程师",
+  "小程序开发工程师",
+  "算法工程师",
+  "数据分析师",
+  "数据工程师",
+  "运维工程师",
+  "测试工程师",
+  "产品经理",
+  "UI设计师",
+  "架构师",
+  "技术主管",
+];
+
+const LOCATION_PRESETS = [
+  "北京",
+  "上海",
+  "广州",
+  "深圳",
+  "杭州",
+  "成都",
+  "武汉",
+  "西安",
+  "南京",
+  "苏州",
+  "重庆",
+  "天津",
+  "长沙",
+  "郑州",
+  "青岛",
+  "大连",
+  "厦门",
+  "珠海",
+  "远程",
+  "全国",
+  "异地",
+];
+
+const EMPLOYMENT_TYPE_PRESETS = [
+  "全职",
+  "兼职",
+  "实习",
+  "远程",
+  "自由职业",
+  "合同工",
+];
+
+const INDUSTRY_PRESETS = [
+  "互联网",
+  "金融科技",
+  "电商",
+  "在线教育",
+  "医疗健康",
+  "人工智能",
+  "大数据",
+  "云计算",
+  "游戏",
+  "社交",
+  "企业服务",
+  "新能源",
+  "智能硬件",
+  "其他",
+];
+
+const AVAILABILITY_PRESETS = [
+  "随时到岗",
+  "一周内到岗",
+  "两周内到岗",
+  "一个月内到岗",
+  "在职考虑机会",
+  "暂不考虑",
+];
+
+const SALARY_RANGE_PRESETS = [
+  "5k-10k",
+  "10k-15k",
+  "15k-20k",
+  "20k-25k",
+  "25k-30k",
+  "30k-40k",
+  "40k-50k",
+  "50k-60k",
+  "60k-80k",
+  "80k-100k",
+  "100k以上",
+  "面议",
 ];
 
 // ==================== 子组件 ====================
@@ -725,6 +846,661 @@ function SkillsForm() {
   );
 }
 
+// ==================== 标签输入组件 ====================
+
+function TagInput({
+  label,
+  value,
+  onChange,
+  presets,
+  placeholder,
+}: {
+  label: string;
+  value: string[];
+  onChange: (value: string[]) => void;
+  presets?: string[];
+  placeholder?: string;
+}) {
+  const [inputValue, setInputValue] = useState("");
+  const [showPresets, setShowPresets] = useState(false);
+
+  const handleAdd = (item: string) => {
+    const trimmed = item.trim();
+    if (trimmed && !value.includes(trimmed)) {
+      onChange([...value, trimmed]);
+    }
+    setInputValue("");
+  };
+
+  const handleRemove = (item: string) => {
+    onChange(value.filter((v) => v !== item));
+  };
+
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" || e.key === ",") {
+      e.preventDefault();
+      if (inputValue.trim()) {
+        handleAdd(inputValue);
+      }
+    }
+  };
+
+  const filteredPresets = presets?.filter((p) =>
+    p.toLowerCase().includes(inputValue.toLowerCase()) && !value.includes(p)
+  );
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      <div className="relative">
+        <div className="flex flex-wrap gap-2 rounded-md border bg-background p-2 focus-within:ring-2 focus-within:ring-primary/30">
+          {value.map((item) => (
+            <Badge key={item} variant="secondary" className="flex items-center gap-1">
+              {item}
+              <button
+                onClick={() => handleRemove(item)}
+                className="ml-1 rounded-full hover:bg-background"
+              >
+                <X className="h-3 w-3" />
+              </button>
+            </Badge>
+          ))}
+          <input
+            type="text"
+            className="flex-1 min-w-[100px] outline-none bg-transparent text-sm"
+            placeholder={placeholder || "输入后按回车添加"}
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            onKeyDown={handleKeyDown}
+            onFocus={() => presets && setShowPresets(true)}
+            onBlur={() => setTimeout(() => setShowPresets(false), 200)}
+          />
+        </div>
+        {showPresets && filteredPresets && filteredPresets.length > 0 && (
+          <div className="absolute z-10 mt-1 w-full max-h-[200px] overflow-auto rounded-md border bg-popover p-1 shadow-md">
+            {filteredPresets.slice(0, 10).map((preset) => (
+              <button
+                key={preset}
+                type="button"
+                className="w-full rounded-sm px-3 py-1.5 text-left text-sm hover:bg-accent"
+                onClick={() => handleAdd(preset)}
+              >
+                {preset}
+              </button>
+            ))}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+// ==================== 就业意向表单 ====================
+
+function JobIntentForm() {
+  const { jobIntent, updateJobIntent } = useResumeStore();
+
+  return (
+    <div className="flex flex-col gap-6">
+      {/* 意向职位 */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Target className="h-5 w-5 text-primary" />
+            意向职位
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TagInput
+            label="选择或输入你想要申请的职位"
+            value={jobIntent.desiredPositions}
+            onChange={(v) => updateJobIntent({ desiredPositions: v })}
+            presets={POSITION_PRESETS}
+            placeholder="输入职位后按回车添加"
+          />
+        </CardContent>
+      </Card>
+
+      {/* 意向地点 */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <MapPin className="h-5 w-5 text-primary" />
+            工作地点
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <TagInput
+            label="选择或输入你期望的工作地点（可多选）"
+            value={jobIntent.desiredLocations}
+            onChange={(v) => updateJobIntent({ desiredLocations: v })}
+            presets={LOCATION_PRESETS}
+            placeholder="输入地点后按回车添加"
+          />
+          <p className="mt-2 text-xs text-muted-foreground">
+            提示：选择「远程」或「全国」表示不限制地点
+          </p>
+        </CardContent>
+      </Card>
+
+      {/* 薪资与类型 */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <DollarSign className="h-5 w-5 text-primary" />
+            薪资与工作类型
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label>期望薪资范围（月薪）</Label>
+              <Select
+                value={jobIntent.salaryRange}
+                onValueChange={(v) => updateJobIntent({ salaryRange: v ?? "" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择薪资范围" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SALARY_RANGE_PRESETS.map((range) => (
+                    <SelectItem key={range} value={range}>
+                      {range}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="flex flex-col gap-2">
+              <Label>到岗时间</Label>
+              <Select
+                value={jobIntent.availability}
+                onValueChange={(v) => updateJobIntent({ availability: v ?? "" })}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择到岗时间" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AVAILABILITY_PRESETS.map((a) => (
+                    <SelectItem key={a} value={a}>
+                      {a}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          <div className="mt-4 flex flex-col gap-2">
+            <Label>工作类型（可多选）</Label>
+            <div className="flex flex-wrap gap-2">
+              {EMPLOYMENT_TYPE_PRESETS.map((type) => {
+                const isSelected = jobIntent.employmentType.includes(type);
+                return (
+                  <button
+                    key={type}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        updateJobIntent({
+                          employmentType: jobIntent.employmentType.filter((t) => t !== type),
+                        });
+                      } else {
+                        updateJobIntent({
+                          employmentType: [...jobIntent.employmentType, type],
+                        });
+                      }
+                    }}
+                    className={cn(
+                      "rounded-md border px-3 py-1.5 text-sm transition-colors",
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "hover:bg-accent"
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {isSelected && <Check className="h-3 w-3" />}
+                      {type}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 行业与目标技能 */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Zap className="h-5 w-5 text-primary" />
+            行业偏好与目标技能
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-2">
+            <Label>意向行业（可多选）</Label>
+            <div className="flex flex-wrap gap-2">
+              {INDUSTRY_PRESETS.map((industry) => {
+                const isSelected = jobIntent.industries.includes(industry);
+                return (
+                  <button
+                    key={industry}
+                    type="button"
+                    onClick={() => {
+                      if (isSelected) {
+                        updateJobIntent({
+                          industries: jobIntent.industries.filter((i) => i !== industry),
+                        });
+                      } else {
+                        updateJobIntent({
+                          industries: [...jobIntent.industries, industry],
+                        });
+                      }
+                    }}
+                    className={cn(
+                      "rounded-md border px-3 py-1.5 text-sm transition-colors",
+                      isSelected
+                        ? "border-primary bg-primary/10 text-primary"
+                        : "hover:bg-accent"
+                    )}
+                  >
+                    <span className="flex items-center gap-1.5">
+                      {isSelected && <Check className="h-3 w-3" />}
+                      {industry}
+                    </span>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+
+          <div className="mt-4">
+            <TagInput
+              label="目标技能/需要提升的技能（选填）"
+              value={jobIntent.keySkills}
+              onChange={(v) => updateJobIntent({ keySkills: v })}
+              placeholder="输入技能后按回车添加"
+            />
+            <p className="mt-1 text-xs text-muted-foreground">
+              填写你希望在新工作中使用的技能，或需要提升的技能
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* 职业目标 */}
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Briefcase className="h-5 w-5 text-primary" />
+            职业目标
+          </CardTitle>
+        </CardHeader>
+        <CardContent>
+          <div className="flex flex-col gap-2">
+            <Label>简述你的职业目标和期望</Label>
+            <Textarea
+              placeholder="例如：希望在未来1-2年成长为高级前端工程师，参与大型互联网项目，提升技术架构能力..."
+              className="min-h-[100px]"
+              value={jobIntent.careerGoals}
+              onChange={(e) => updateJobIntent({ careerGoals: e.target.value })}
+            />
+            <p className="text-xs text-muted-foreground">
+              这将帮助系统更精准地为你推荐匹配的岗位
+            </p>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+// ==================== 匹配结果展示组件 ====================
+
+function MatchResultCard({
+  result,
+  onViewDetails,
+}: {
+  result: JobMatchResult;
+  onViewDetails?: () => void;
+}) {
+  const getMatchColor = (percentage: number) => {
+    if (percentage >= 80) return "text-green-600 dark:text-green-400";
+    if (percentage >= 60) return "text-yellow-600 dark:text-yellow-400";
+    if (percentage >= 40) return "text-orange-600 dark:text-orange-400";
+    return "text-red-600 dark:text-red-400";
+  };
+
+  const getMatchBgColor = (percentage: number) => {
+    if (percentage >= 80) return "bg-green-500";
+    if (percentage >= 60) return "bg-yellow-500";
+    if (percentage >= 40) return "bg-orange-500";
+    return "bg-red-500";
+  };
+
+  const getMatchLabel = (percentage: number) => {
+    if (percentage >= 80) return "高度匹配";
+    if (percentage >= 60) return "一般匹配";
+    if (percentage >= 40) return "部分匹配";
+    return "匹配度低";
+  };
+
+  return (
+    <Card className="overflow-hidden transition-shadow hover:shadow-md">
+      <CardContent className="p-4">
+        <div className="flex items-start justify-between gap-4">
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-2">
+              <span className="font-semibold truncate">{result.companyName}</span>
+              <Badge
+                variant="outline"
+                className={cn("text-xs", getMatchColor(result.overallPercentage))}
+              >
+                {getMatchLabel(result.overallPercentage)}
+              </Badge>
+            </div>
+            <p className="mt-1 text-sm text-muted-foreground truncate">{result.position}</p>
+          </div>
+          <div className="flex flex-col items-center">
+            <div className={cn("text-2xl font-bold", getMatchColor(result.overallPercentage))}>
+              {result.overallPercentage}%
+            </div>
+            <Progress
+              value={result.overallPercentage}
+              className={cn("mt-1 h-1.5 w-16", getMatchBgColor(result.overallPercentage))}
+            />
+          </div>
+        </div>
+
+        {/* 优势和差距 */}
+        {result.strengths.length > 0 && (
+          <div className="mt-3">
+            <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+              <CheckCircle2 className="h-3 w-3" />
+              <span className="font-medium">优势</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+              {result.strengths.join("；")}
+            </p>
+          </div>
+        )}
+
+        {result.gaps.length > 0 && (
+          <div className="mt-2">
+            <div className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400">
+              <AlertTriangle className="h-3 w-3" />
+              <span className="font-medium">差距</span>
+            </div>
+            <p className="mt-1 text-xs text-muted-foreground line-clamp-2">
+              {result.gaps.join("；")}
+            </p>
+          </div>
+        )}
+
+        {onViewDetails && (
+          <Button
+            variant="ghost"
+            size="sm"
+            className="mt-3 w-full text-xs"
+            onClick={onViewDetails}
+          >
+            查看详情 <ArrowRight className="ml-1 h-3 w-3" />
+          </Button>
+        )}
+      </CardContent>
+    </Card>
+  );
+}
+
+function MatchDetailDialog({
+  result,
+  open,
+  onOpenChange,
+}: {
+  result: JobMatchResult | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!result) return null;
+
+  const getDetailColor = (score: number, maxScore: number) => {
+    const percentage = (score / maxScore) * 100;
+    if (percentage >= 70) return "text-green-600 dark:text-green-400";
+    if (percentage >= 40) return "text-yellow-600 dark:text-yellow-400";
+    return "text-red-600 dark:text-red-400";
+  };
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-w-2xl max-h-[80vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle className="flex items-center justify-between">
+            <div>
+              <span className="text-lg font-bold">{result.companyName}</span>
+              <span className="ml-2 text-sm text-muted-foreground">— {result.position}</span>
+            </div>
+            <Badge variant="outline" className="text-base px-3">
+              匹配度: {result.overallPercentage}%
+            </Badge>
+          </DialogTitle>
+        </DialogHeader>
+
+        {/* 各维度匹配详情 */}
+        <div className="flex flex-col gap-4">
+          {result.details.map((detail) => {
+            const percentage = (detail.score / detail.maxScore) * 100;
+            return (
+              <Card key={detail.category}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="text-sm flex items-center justify-between">
+                    <span>{detail.category}</span>
+                    <span className={getDetailColor(detail.score, detail.maxScore)}>
+                      {detail.score}/{detail.maxScore} ({Math.round(percentage)}%)
+                    </span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <Progress value={percentage} className="h-2 mb-3" />
+                  <p className="text-xs text-muted-foreground mb-2">{detail.explanation}</p>
+
+                  {detail.matchedItems.length > 0 && (
+                    <div className="flex flex-col gap-1">
+                      <div className="flex items-center gap-1 text-xs text-green-600 dark:text-green-400">
+                        <Check className="h-3 w-3" />
+                        <span className="font-medium">匹配项</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {detail.matchedItems.slice(0, 10).map((item) => (
+                          <Badge key={item} variant="secondary" className="text-xs bg-green-50 dark:bg-green-900/20 text-green-700 dark:text-green-400">
+                            {item}
+                          </Badge>
+                        ))}
+                        {detail.matchedItems.length > 10 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{detail.matchedItems.length - 10} 更多
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+
+                  {detail.missingItems.length > 0 && (
+                    <div className="flex flex-col gap-1 mt-2">
+                      <div className="flex items-center gap-1 text-xs text-yellow-600 dark:text-yellow-400">
+                        <AlertCircle className="h-3 w-3" />
+                        <span className="font-medium">未匹配/缺失项</span>
+                      </div>
+                      <div className="flex flex-wrap gap-1">
+                        {detail.missingItems.slice(0, 10).map((item) => (
+                          <Badge key={item} variant="outline" className="text-xs border-yellow-300 text-yellow-600 dark:border-yellow-800 dark:text-yellow-400">
+                            {item}
+                          </Badge>
+                        ))}
+                        {detail.missingItems.length > 10 && (
+                          <Badge variant="outline" className="text-xs">
+                            +{detail.missingItems.length - 10} 更多
+                          </Badge>
+                        )}
+                      </div>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+
+        {/* 建议 */}
+        {result.suggestions.length > 0 && (
+          <Card className="border-primary/30 bg-primary/5">
+            <CardHeader className="pb-2">
+              <CardTitle className="text-sm flex items-center gap-2">
+                <Lightbulb className="h-4 w-4 text-yellow-500" />
+                改进建议
+              </CardTitle>
+            </CardHeader>
+            <CardContent>
+              <ul className="flex flex-col gap-2">
+                {result.suggestions.map((s, i) => (
+                  <li key={i} className="flex items-start gap-2 text-sm">
+                    <span className="mt-1 h-1.5 w-1.5 shrink-0 rounded-full bg-primary" />
+                    <span className="text-muted-foreground">{s}</span>
+                  </li>
+                ))}
+              </ul>
+            </CardContent>
+          </Card>
+        )}
+
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline">关闭</Button>} />
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** 匹配结果面板 */
+function MatchResultsPanel() {
+  const { matchWithJobs, matchResults } = useResumeStore();
+  const { jobList } = useJobStore();
+  const [isMatching, setIsMatching] = useState(false);
+  const [selectedResult, setSelectedResult] = useState<JobMatchResult | null>(null);
+  const [detailOpen, setDetailOpen] = useState(false);
+
+  const handleMatch = useCallback(() => {
+    if (jobList.length === 0) return;
+    setIsMatching(true);
+    setTimeout(() => {
+      matchWithJobs(jobList);
+      setIsMatching(false);
+    }, 500);
+  }, [jobList, matchWithJobs]);
+
+  const getMatchLabel = (percentage: number) => {
+    if (percentage >= 80) return "高度匹配";
+    if (percentage >= 60) return "一般匹配";
+    if (percentage >= 40) return "部分匹配";
+    return "匹配度低";
+  };
+
+  const handleViewDetails = (result: JobMatchResult) => {
+    setSelectedResult(result);
+    setDetailOpen(true);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between">
+        <h3 className="font-semibold">岗位匹配分析</h3>
+        <Button
+          size="sm"
+          onClick={handleMatch}
+          disabled={jobList.length === 0 || isMatching}
+        >
+          <Zap className="mr-2 h-4 w-4" />
+          {isMatching ? "分析中..." : "开始匹配"}
+        </Button>
+      </div>
+
+      {jobList.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-8">
+            <Briefcase className="mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">暂无求职岗位数据</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              请先在「求职管理」页面添加岗位信息
+            </p>
+          </CardContent>
+        </Card>
+      ) : matchResults.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-8">
+            <Zap className="mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">点击「开始匹配」分析你的简历与岗位的匹配程度</p>
+            <p className="mt-1 text-xs text-muted-foreground">
+              共有 {jobList.length} 个岗位待分析
+            </p>
+          </CardContent>
+        </Card>
+      ) : (
+        <>
+          {/* 匹配统计 */}
+          <Card>
+            <CardContent className="pt-4">
+              <div className="grid grid-cols-2 gap-4 sm:grid-cols-4">
+                <div className="flex flex-col items-center">
+                  <span className="text-2xl font-bold">{matchResults.length}</span>
+                  <span className="text-xs text-muted-foreground">分析岗位</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-2xl font-bold text-green-600 dark:text-green-400">
+                    {matchResults.filter((r) => r.overallPercentage >= 80).length}
+                  </span>
+                  <span className="text-xs text-muted-foreground">高度匹配</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-2xl font-bold text-yellow-600 dark:text-yellow-400">
+                    {matchResults.filter((r) => r.overallPercentage >= 60 && r.overallPercentage < 80).length}
+                  </span>
+                  <span className="text-xs text-muted-foreground">一般匹配</span>
+                </div>
+                <div className="flex flex-col items-center">
+                  <span className="text-2xl font-bold text-orange-600 dark:text-orange-400">
+                    {matchResults.filter((r) => r.overallPercentage < 60).length}
+                  </span>
+                  <span className="text-xs text-muted-foreground">需优化</span>
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 匹配结果列表 */}
+          <div className="flex flex-col gap-3">
+            {matchResults.map((result) => (
+              <MatchResultCard
+                key={result.jobId}
+                result={result}
+                onViewDetails={() => handleViewDetails(result)}
+              />
+            ))}
+          </div>
+        </>
+      )}
+
+      {/* 详情弹窗 */}
+      <MatchDetailDialog
+        result={selectedResult}
+        open={detailOpen}
+        onOpenChange={setDetailOpen}
+      />
+    </div>
+  );
+}
+
 // ==================== 简历预览模板 ====================
 
 /** 经典模板 */
@@ -1360,6 +2136,7 @@ export default function ResumePage() {
                   {activeStep === 2 && <WorkExperienceForm />}
                   {activeStep === 3 && <ProjectExperienceForm />}
                   {activeStep === 4 && <SkillsForm />}
+                  {activeStep === 5 && <JobIntentForm />}
                 </CardContent>
               </Card>
 
@@ -1373,21 +2150,46 @@ export default function ResumePage() {
                   <ChevronLeft className="mr-2 h-4 w-4" />
                   上一步
                 </Button>
-                <Button
-                  onClick={() =>
-                    setActiveStep(Math.min(STEPS.length - 1, activeStep + 1))
-                  }
-                  disabled={activeStep === STEPS.length - 1}
-                >
-                  下一步
-                  <ChevronRight className="ml-2 h-4 w-4" />
-                </Button>
+                {activeStep === STEPS.length - 1 ? (
+                  <Button
+                    onClick={() => setActiveView("preview")}
+                  >
+                    去预览
+                    <Eye className="ml-2 h-4 w-4" />
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={() =>
+                      setActiveStep(Math.min(STEPS.length - 1, activeStep + 1))
+                    }
+                  >
+                    下一步
+                    <ChevronRight className="ml-2 h-4 w-4" />
+                  </Button>
+                )}
               </div>
             </div>
 
-            {/* 右侧：AI 建议面板 */}
+            {/* 右侧：AI 建议和匹配分析面板 */}
             <div>
-              <AISuggestionsPanel />
+              <Tabs defaultValue="suggestions" className="w-full">
+                <TabsList className="w-full mb-4">
+                  <TabsTrigger value="suggestions" className="flex-1">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    简历优化
+                  </TabsTrigger>
+                  <TabsTrigger value="match" className="flex-1">
+                    <Zap className="mr-2 h-4 w-4" />
+                    岗位匹配
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="suggestions">
+                  <AISuggestionsPanel />
+                </TabsContent>
+                <TabsContent value="match">
+                  <MatchResultsPanel />
+                </TabsContent>
+              </Tabs>
             </div>
           </div>
         )}
