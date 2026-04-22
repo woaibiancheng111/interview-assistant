@@ -8,7 +8,14 @@ import { useQuestionStore, type QuestionStatus } from "@/lib/store/question-stor
 import {
   type Difficulty,
   difficultyLabels,
+  questions,
 } from "@/lib/data/questions";
+
+export function generateStaticParams() {
+  return questions.map((q) => ({
+    id: q.id,
+  }));
+}
 
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
