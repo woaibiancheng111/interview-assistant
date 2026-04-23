@@ -1,4 +1,3 @@
-import { Generation } from "dashscope";
 import type { ResumeState } from "@/lib/store/resume-store";
 
 export interface KeywordMatch {
@@ -101,16 +100,64 @@ GitHub：${personalInfo.github || "未填写"}
   return context;
 }
 
+async function callDashscopeAPI(
+  apiKey: string,
+  model: string,
+  prompt: string,
+  options?: {
+    temperature?: number;
+    maxTokens?: number;
+  }
+): Promise<string> {
+  if (!apiKey) {
+    throw new Error("请先在设置中配置百炼 API Key");
+  }
+
+  const response = await fetch(
+    "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
+    {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "Authorization": `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: model,
+        messages: [
+          {
+            role: "user",
+            content: prompt,
+          },
+        ],
+        temperature: options?.temperature ?? 0.7,
+        max_tokens: options?.maxTokens ?? 2000,
+      }),
+    }
+  );
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    throw new Error(
+      `API 调用失败: ${response.status} ${errorData.error?.message || response.statusText}`
+    );
+  }
+
+  const data = await response.json();
+  const content = data.choices?.[0]?.message?.content;
+
+  if (!content) {
+    throw new Error("AI 响应为空，请重试");
+  }
+
+  return content;
+}
+
 export async function analyzeKeywordMatch(
   apiKey: string,
   model: string,
   jdText: string,
   resumeState: ResumeState
 ): Promise<KeywordAnalysisResult> {
-  if (!apiKey) {
-    throw new Error("请先在设置中配置百炼 API Key");
-  }
-
   const resumeContext = buildResumeContext(resumeState);
 
   const prompt = `
@@ -164,17 +211,11 @@ ${resumeContext}
 
 只返回 JSON，不要有其他解释。`;
 
-  const response = await Generation.call({
-    apiKey,
-    model,
-    prompt,
-    parameters: {
-      temperature: 0.1,
-      maxTokens: 2000,
-    },
+  const output = await callDashscopeAPI(apiKey, model, prompt, {
+    temperature: 0.1,
+    maxTokens: 2000,
   });
 
-  const output = response.output?.text ?? "";
   let result: KeywordAnalysisResult;
 
   try {
@@ -196,10 +237,6 @@ export async function extractHighlights(
   model: string,
   resumeState: ResumeState
 ): Promise<HighlightExtraction[]> {
-  if (!apiKey) {
-    throw new Error("请先在设置中配置百炼 API Key");
-  }
-
   const resumeContext = buildResumeContext(resumeState);
 
   const prompt = `
@@ -232,17 +269,11 @@ ${resumeContext}
 
 只返回 JSON，不要有其他解释。`;
 
-  const response = await Generation.call({
-    apiKey,
-    model,
-    prompt,
-    parameters: {
-      temperature: 0.7,
-      maxTokens: 2000,
-    },
+  const output = await callDashscopeAPI(apiKey, model, prompt, {
+    temperature: 0.7,
+    maxTokens: 2000,
   });
 
-  const output = response.output?.text ?? "";
   let result: { highlights: HighlightExtraction[] };
 
   try {
@@ -265,10 +296,6 @@ export async function optimizeForJD(
   jdText: string,
   resumeState: ResumeState
 ): Promise<ResumeOptimizationResult> {
-  if (!apiKey) {
-    throw new Error("请先在设置中配置百炼 API Key");
-  }
-
   const resumeContext = buildResumeContext(resumeState);
 
   const prompt = `
@@ -323,17 +350,11 @@ ${resumeContext}
 
 只返回 JSON，不要有其他解释。`;
 
-  const response = await Generation.call({
-    apiKey,
-    model,
-    prompt,
-    parameters: {
-      temperature: 0.7,
-      maxTokens: 3000,
-    },
+  const output = await callDashscopeAPI(apiKey, model, prompt, {
+    temperature: 0.7,
+    maxTokens: 3000,
   });
 
-  const output = response.output?.text ?? "";
   let result: ResumeOptimizationResult;
 
   try {
