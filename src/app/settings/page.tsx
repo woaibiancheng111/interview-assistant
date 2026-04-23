@@ -11,6 +11,10 @@ import {
   Bell,
   Palette,
   Shield,
+  Bot,
+  Key,
+  Eye,
+  EyeOff,
 } from "lucide-react"
 import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
@@ -45,6 +49,9 @@ import { useQuestionStore } from "@/lib/store/question-store"
 import { useInterviewStore } from "@/lib/store/interview-store"
 import { useJobStore } from "@/lib/store/job-store"
 import { useResumeStore } from "@/lib/store/resume-store"
+import { useSettingsStore } from "@/lib/store/settings-store"
+import { Badge } from "@/components/ui/badge"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 function SettingSection({
   icon: Icon,
@@ -73,12 +80,22 @@ function SettingSection({
   )
 }
 
+const DASHSCOPE_MODELS = [
+  { value: "qwen-turbo", label: "qwen-turbo (快速版)", description: "适合简单任务，响应最快" },
+  { value: "qwen-plus", label: "qwen-plus (标准版)", description: "平衡性能与速度，推荐使用" },
+  { value: "qwen-max", label: "qwen-max (高级版)", description: "最强模型，适合复杂推理" },
+  { value: "qwen-plus-latest", label: "qwen-plus-latest", description: "最新版 qwen-plus" },
+]
+
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
   const [mounted, setMounted] = useState(false)
   const [language, setLanguage] = useState("zh-CN")
   const [dailyReminder, setDailyReminder] = useState(true)
   const [autoSave, setAutoSave] = useState(true)
+  const [showApiKey, setShowApiKey] = useState(false)
+
+  const { aiSettings, setDashscopeApiKey, setDashscopeModel, resetAISettings } = useSettingsStore()
 
   useEffect(() => {
     setMounted(true)
@@ -107,6 +124,7 @@ export default function SettingsPage() {
       interview: useInterviewStore.getState(),
       jobs: useJobStore.getState(),
       resume: useResumeStore.getState(),
+      settings: useSettingsStore.getState(),
       exportDate: new Date().toISOString(),
     }
     const jsonString = JSON.stringify(data, (key, value) => {
@@ -141,6 +159,7 @@ export default function SettingsPage() {
         if (data.interview) useInterviewStore.setState(data.interview)
         if (data.jobs) useJobStore.setState(data.jobs)
         if (data.resume) useResumeStore.setState(data.resume)
+        if (data.settings) useSettingsStore.setState(data.settings)
         alert("数据导入成功！")
       } catch {
         alert("导入失败，文件格式不正确")
@@ -149,6 +168,8 @@ export default function SettingsPage() {
     reader.readAsText(file)
     e.target.value = ""
   }
+
+  const hasApiKey = aiSettings.dashscopeApiKey.trim().length > 0
 
   return (
     <div className="p-4 md:p-6 lg:p-8 flex flex-col gap-6 max-w-3xl mx-auto">
@@ -161,6 +182,99 @@ export default function SettingsPage() {
       </div>
 
       <div className="flex flex-col gap-4">
+        <SettingSection
+          icon={Bot}
+          title="AI 服务配置"
+          description="配置百炼大模型 API Key 以启用 AI 简历优化功能"
+        >
+          <div className="flex flex-col gap-4">
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col gap-1">
+                <div className="flex items-center gap-2">
+                  <Label className="text-sm">API Key</Label>
+                  {hasApiKey && (
+                    <Badge variant="default" className="text-[10px]">已配置</Badge>
+                  )}
+                </div>
+                <span className="text-xs text-muted-foreground">
+                  百炼大模型 API Key，用于 AI 简历优化、关键词分析等功能
+                </span>
+              </div>
+            </div>
+
+            <div className="flex gap-2">
+              <div className="relative flex-1">
+                <Input
+                  type={showApiKey ? "text" : "password"}
+                  value={aiSettings.dashscopeApiKey}
+                  onChange={(e) => setDashscopeApiKey(e.target.value)}
+                  placeholder="sk-xxxxxxxxxxxxxxxx"
+                  className="pr-10"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowApiKey(!showApiKey)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                >
+                  {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
+                </button>
+              </div>
+            </div>
+
+            <div className="flex items-center justify-between">
+              <div className="flex flex-col">
+                <Label className="text-sm">模型选择</Label>
+                <span className="text-xs text-muted-foreground">选择用于 AI 分析的模型版本</span>
+              </div>
+              <Select value={aiSettings.dashscopeModel} onValueChange={(v) => v && setDashscopeModel(v)}>
+                <SelectTrigger className="w-48">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {DASHSCOPE_MODELS.map((model) => (
+                    <SelectItem key={model.value} value={model.value}>
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <span>{model.label}</span>
+                          </TooltipTrigger>
+                          <TooltipContent side="right">
+                            <p className="text-xs">{model.description}</p>
+                          </TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="rounded-md bg-muted/50 p-3">
+              <div className="flex items-start gap-2">
+                <Key className="size-4 text-muted-foreground mt-0.5 shrink-0" />
+                <div className="flex flex-col gap-1">
+                  <span className="text-xs font-medium">如何获取 API Key？</span>
+                  <p className="text-xs text-muted-foreground">
+                    1. 访问 <a href="https://dashscope.console.aliyun.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">百炼控制台</a>
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    2. 开通 DashScope 服务并创建 API Key
+                  </p>
+                  <p className="text-xs text-muted-foreground">
+                    3. 将 API Key 复制到上方输入框即可
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            <Separator />
+
+            <Button variant="outline" size="sm" onClick={resetAISettings} className="w-fit">
+              重置 AI 设置
+            </Button>
+          </div>
+        </SettingSection>
+
         <SettingSection
           icon={Palette}
           title="外观"

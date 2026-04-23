@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import type { KeywordAnalysisResult, HighlightExtraction, ResumeOptimizationResult } from "@/lib/services/ai-service";
 
 // ==================== 类型定义 ====================
 
@@ -63,6 +64,16 @@ export interface ResumeTemplate {
   description: string;
 }
 
+export interface AIAnalysisState {
+  jdText: string;
+  isAnalyzing: boolean;
+  analysisError: string | null;
+  lastAnalysisTime: number | null;
+  keywordAnalysis: KeywordAnalysisResult | null;
+  highlights: HighlightExtraction[] | null;
+  optimizationResult: ResumeOptimizationResult | null;
+}
+
 export interface ResumeState {
   // 数据
   personalInfo: PersonalInfo;
@@ -72,6 +83,7 @@ export interface ResumeState {
   skillCategories: SkillCategory[];
   resumeScore: ResumeScore;
   selectedTemplate: string;
+  aiAnalysis: AIAnalysisState;
 
   // 个人信息操作
   updatePersonalInfo: (info: Partial<PersonalInfo>) => void;
@@ -102,6 +114,15 @@ export interface ResumeState {
   // 模板
   setTemplate: (templateId: string) => void;
 
+  // AI 分析
+  updateJDText: (text: string) => void;
+  setIsAnalyzing: (isAnalyzing: boolean) => void;
+  setAnalysisError: (error: string | null) => void;
+  setKeywordAnalysis: (result: KeywordAnalysisResult | null) => void;
+  setHighlights: (highlights: HighlightExtraction[] | null) => void;
+  setOptimizationResult: (result: ResumeOptimizationResult | null) => void;
+  clearAIAnalysis: () => void;
+
   // 重置
   resetResume: () => void;
 }
@@ -125,6 +146,16 @@ const defaultScore: ResumeScore = {
   projectExperience: 0,
   skills: 0,
   suggestions: [],
+};
+
+const defaultAIAnalysis: AIAnalysisState = {
+  jdText: "",
+  isAnalyzing: false,
+  analysisError: null,
+  lastAnalysisTime: null,
+  keywordAnalysis: null,
+  highlights: null,
+  optimizationResult: null,
 };
 
 const generateId = () => Math.random().toString(36).substring(2, 11);
@@ -260,6 +291,7 @@ export const useResumeStore = create<ResumeState>()(
       skillCategories: [],
       resumeScore: defaultScore,
       selectedTemplate: "classic",
+      aiAnalysis: { ...defaultAIAnalysis },
 
       // 个人信息
       updatePersonalInfo: (info) =>
@@ -343,6 +375,54 @@ export const useResumeStore = create<ResumeState>()(
       // 模板
       setTemplate: (templateId) => set({ selectedTemplate: templateId }),
 
+      // AI 分析
+      updateJDText: (text) =>
+        set((state) => ({
+          aiAnalysis: { ...state.aiAnalysis, jdText: text },
+        })),
+
+      setIsAnalyzing: (isAnalyzing) =>
+        set((state) => ({
+          aiAnalysis: { ...state.aiAnalysis, isAnalyzing },
+        })),
+
+      setAnalysisError: (error) =>
+        set((state) => ({
+          aiAnalysis: { ...state.aiAnalysis, analysisError: error },
+        })),
+
+      setKeywordAnalysis: (result) =>
+        set((state) => ({
+          aiAnalysis: {
+            ...state.aiAnalysis,
+            keywordAnalysis: result,
+            lastAnalysisTime: Date.now(),
+          },
+        })),
+
+      setHighlights: (highlights) =>
+        set((state) => ({
+          aiAnalysis: {
+            ...state.aiAnalysis,
+            highlights,
+            lastAnalysisTime: Date.now(),
+          },
+        })),
+
+      setOptimizationResult: (result) =>
+        set((state) => ({
+          aiAnalysis: {
+            ...state.aiAnalysis,
+            optimizationResult: result,
+            lastAnalysisTime: Date.now(),
+          },
+        })),
+
+      clearAIAnalysis: () =>
+        set((state) => ({
+          aiAnalysis: { ...defaultAIAnalysis, jdText: state.aiAnalysis.jdText },
+        })),
+
       // 重置
       resetResume: () =>
         set({
@@ -353,6 +433,7 @@ export const useResumeStore = create<ResumeState>()(
           skillCategories: [],
           resumeScore: defaultScore,
           selectedTemplate: "classic",
+          aiAnalysis: { ...defaultAIAnalysis },
         }),
     }),
     {
