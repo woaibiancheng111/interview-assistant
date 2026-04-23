@@ -815,7 +815,7 @@ function KeywordAnalysisDisplay({ result }: { result: KeywordAnalysisResult }) {
               {result.matchedKeywords.map((kw, i) => (
                 <TooltipProvider key={i}>
                   <Tooltip>
-                    <TooltipTrigger asChild>
+                    <TooltipTrigger>
                       <Badge variant="default" className="cursor-default">{kw.keyword}</Badge>
                     </TooltipTrigger>
                     <TooltipContent><p className="text-xs">类别：{kw.category}</p></TooltipContent>
@@ -838,7 +838,7 @@ function KeywordAnalysisDisplay({ result }: { result: KeywordAnalysisResult }) {
               {result.missingKeywords.map((kw, i) => (
                 <TooltipProvider key={i}>
                   <Tooltip>
-                    <TooltipTrigger asChild>
+                    <TooltipTrigger>
                       <Badge variant="outline" className="cursor-default border-yellow-500/50 text-yellow-600 dark:text-yellow-400">{kw.keyword}</Badge>
                     </TooltipTrigger>
                     <TooltipContent><p className="text-xs">类别：{kw.category}</p></TooltipContent>
@@ -864,7 +864,7 @@ function HighlightsDisplay({ highlights }: { highlights: HighlightExtraction[] }
           </CardTitle>
         </CardHeader>
         <CardContent>
-          <Accordion type="single" collapsible className="w-full">
+          <Accordion className="w-full">
             {highlights.map((h, i) => (
               <AccordionItem key={i} value={`highlight-${i}`}>
                 <AccordionTrigger className="text-left">

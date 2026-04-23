@@ -235,7 +235,7 @@ export default function SettingsPage() {
                     <SelectItem key={model.value} value={model.value}>
                       <TooltipProvider>
                         <Tooltip>
-                          <TooltipTrigger asChild>
+                          <TooltipTrigger>
                             <span>{model.label}</span>
                           </TooltipTrigger>
                           <TooltipContent side="right">
