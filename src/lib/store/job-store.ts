@@ -1,5 +1,10 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { syncService } from "./sync-service";
+import {
+  JobStatus as PrismaJobStatus,
+  InterviewResult as PrismaInterviewResult,
+} from "@prisma/client";
 
 // ==================== 类型定义 ====================
 
@@ -58,6 +63,10 @@ export interface JobState {
   updateInterview: (id: string, interview: Partial<InterviewRecord>) => void;
   removeInterview: (id: string) => void;
 
+  // 同步方法
+  setJobList: (jobs: JobApplication[]) => void;
+  setInterviewRecords: (interviews: InterviewRecord[]) => void;
+
   // 统计
   getStatistics: () => JobStatistics;
 
@@ -83,55 +92,85 @@ export const useJobStore = create<JobState>()(
       jobList: [],
       interviewRecords: [],
 
-      // 岗位操作
-      addJob: (job) =>
-        set((state) => ({
-          jobList: [
-            ...state.jobList,
-            { ...job, id: generateId(), lastUpdated: getNow() },
-          ],
-        })),
+      // 同步方法
+      setJobList: (jobs) => set({ jobList: jobs }),
+      setInterviewRecords: (interviews) => set({ interviewRecords: interviews }),
 
-      updateJob: (id, job) =>
+      // 岗位操作
+      addJob: (job) => {
+        const newJob: JobApplication = {
+          ...job,
+          id: generateId(),
+          lastUpdated: getNow(),
+        };
+        set((state) => ({
+          jobList: [...state.jobList, newJob],
+        }));
+        syncService.saveJob(newJob);
+      },
+
+      updateJob: (id, job) => {
         set((state) => ({
           jobList: state.jobList.map((j) =>
             j.id === id ? { ...j, ...job, lastUpdated: getNow() } : j
           ),
-        })),
+        }));
+        const updatedJob = get().jobList.find((j) => j.id === id);
+        if (updatedJob) {
+          syncService.saveJob(updatedJob);
+        }
+      },
 
-      removeJob: (id) =>
+      removeJob: (id) => {
         set((state) => ({
           jobList: state.jobList.filter((j) => j.id !== id),
           interviewRecords: state.interviewRecords.filter((i) => i.jobId !== id),
-        })),
+        }));
+        syncService.removeJob(id);
+      },
 
-      updateJobStatus: (id, status) =>
+      updateJobStatus: (id, status) => {
         set((state) => ({
           jobList: state.jobList.map((j) =>
             j.id === id ? { ...j, status, lastUpdated: getNow() } : j
           ),
-        })),
+        }));
+        const updatedJob = get().jobList.find((j) => j.id === id);
+        if (updatedJob) {
+          syncService.saveJob(updatedJob);
+        }
+      },
 
       // 面试操作
-      addInterview: (interview) =>
+      addInterview: (interview) => {
+        const newInterview: InterviewRecord = {
+          ...interview,
+          id: generateId(),
+        };
         set((state) => ({
-          interviewRecords: [
-            ...state.interviewRecords,
-            { ...interview, id: generateId() },
-          ],
-        })),
+          interviewRecords: [...state.interviewRecords, newInterview],
+        }));
+        syncService.saveInterview(newInterview);
+      },
 
-      updateInterview: (id, interview) =>
+      updateInterview: (id, interview) => {
         set((state) => ({
           interviewRecords: state.interviewRecords.map((i) =>
             i.id === id ? { ...i, ...interview } : i
           ),
-        })),
+        }));
+        const updatedInterview = get().interviewRecords.find((i) => i.id === id);
+        if (updatedInterview) {
+          syncService.saveInterview(updatedInterview);
+        }
+      },
 
-      removeInterview: (id) =>
+      removeInterview: (id) => {
         set((state) => ({
           interviewRecords: state.interviewRecords.filter((i) => i.id !== id),
-        })),
+        }));
+        syncService.removeInterview(id);
+      },
 
       // 统计
       getStatistics: () => {

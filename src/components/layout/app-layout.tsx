@@ -11,6 +11,9 @@ import {
   Settings,
   Moon,
   Sun,
+  LogOut,
+  User,
+  LogIn,
 } from "lucide-react"
 import { useTheme } from "next-themes"
 import { cn } from "@/lib/utils"
@@ -32,7 +35,21 @@ import {
   SidebarTrigger,
 } from "@/components/ui/sidebar"
 import { TooltipProvider } from "@/components/ui/tooltip"
+import { Avatar, AvatarFallback } from "@/components/ui/avatar"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
 import { useEffect, useState } from "react"
+import { useAuthStore } from "@/lib/store/auth-store"
+import { useQuestionStore } from "@/lib/store/question-store"
+import { useJobStore } from "@/lib/store/job-store"
+import { useInterviewStore } from "@/lib/store/interview-store"
+import { syncService } from "@/lib/store/sync-service"
 
 const navItems = [
   { title: "仪表盘", href: "/", icon: LayoutDashboard },
@@ -153,17 +170,127 @@ function ThemeToggle() {
   )
 }
 
+function UserMenu() {
+  const router = useRouter()
+  const { user, isLoggedIn, logout } = useAuthStore()
+
+  const handleLogin = () => {
+    router.push("/login")
+  }
+
+  const handleLogout = async () => {
+    await logout()
+    router.push("/")
+  }
+
+  if (!isLoggedIn) {
+    return (
+      <Button variant="ghost" size="sm" onClick={handleLogin}>
+        <LogIn className="mr-2 h-4 w-4" />
+        登录
+      </Button>
+    )
+  }
+
+  return (
+    <DropdownMenu>
+      <DropdownMenuTrigger>
+        <Button variant="ghost" size="sm" className="gap-2">
+          <Avatar className="h-6 w-6">
+            <AvatarFallback className="text-xs">
+              {user?.username?.slice(0, 2).toUpperCase() || "U"}
+            </AvatarFallback>
+          </Avatar>
+          <span className="hidden sm:inline">{user?.username}</span>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent align="end">
+        <DropdownMenuLabel>
+          <div className="flex flex-col">
+            <span className="font-medium">{user?.username}</span>
+            <span className="text-xs text-muted-foreground">{user?.email}</span>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => router.push("/settings")}>
+          <Settings className="mr-2 h-4 w-4" />
+          设置
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout} className="text-destructive">
+          <LogOut className="mr-2 h-4 w-4" />
+          退出登录
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  )
+}
+
+function useDataSync() {
+  const { isLoggedIn } = useAuthStore()
+  const [isSyncing, setIsSyncing] = useState(false)
+
+  useEffect(() => {
+    if (!isLoggedIn) return
+
+    const syncData = async () => {
+      setIsSyncing(true)
+      try {
+        const [answerRecords, favorites, jobs, interviews] = await Promise.all([
+          syncService.syncAnswerRecordsFromApi(),
+          syncService.syncFavoritesFromApi(),
+          syncService.syncJobsFromApi(),
+          syncService.syncInterviewsFromApi(),
+        ])
+
+        const { setAnswerRecords, setFavorites } = useQuestionStore.getState()
+        const { setJobList, setInterviewRecords } = useJobStore.getState()
+
+        if (Object.keys(answerRecords).length > 0) {
+          setAnswerRecords(answerRecords)
+        }
+        if (favorites.size > 0) {
+          setFavorites(favorites)
+        }
+        if (jobs.length > 0) {
+          setJobList(jobs)
+        }
+        if (interviews.length > 0) {
+          setInterviewRecords(interviews)
+        }
+      } catch (error) {
+        console.error("Data sync failed:", error)
+      } finally {
+        setIsSyncing(false)
+      }
+    }
+
+    syncData()
+  }, [isLoggedIn])
+
+  return { isSyncing }
+}
+
 function TopBar() {
+  useDataSync()
+
   return (
     <header className="flex h-14 items-center gap-4 border-b bg-background px-4">
       <SidebarTrigger />
       <div className="flex-1" />
       <ThemeToggle />
+      <UserMenu />
     </header>
   )
 }
 
 export default function AppLayout({ children }: { children: React.ReactNode }) {
+  const pathname = usePathname()
+
+  if (pathname === "/login") {
+    return <>{children}</>
+  }
+
   return (
     <TooltipProvider>
       <SidebarProvider>

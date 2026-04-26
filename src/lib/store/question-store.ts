@@ -7,6 +7,8 @@ import {
   questions,
   categories,
 } from "@/lib/data/questions";
+import { syncService } from "./sync-service";
+import { QuestionStatus as PrismaQuestionStatus } from "@prisma/client";
 
 export type QuestionStatus = "none" | "completed" | "review";
 
@@ -58,6 +60,10 @@ interface QuestionStore {
   isFavorite: (questionId: string) => boolean;
   getQuestionStatus: (questionId: string) => QuestionStatus;
   getFavoriteCount: () => number;
+
+  // 同步方法
+  setAnswerRecords: (records: Record<string, AnswerRecord>) => void;
+  setFavorites: (favorites: Set<string>) => void;
 
   // 筛选后的题目列表
   getFilteredQuestions: () => Question[];
@@ -117,7 +123,13 @@ export const useQuestionStore = create<QuestionStore>()(
       answerRecords: {},
       favorites: new Set<string>(),
 
-      markQuestion: (questionId, status, note = "") =>
+      setAnswerRecords: (records) =>
+        set({ answerRecords: records }),
+
+      setFavorites: (favorites) =>
+        set({ favorites }),
+
+      markQuestion: (questionId, status, note = "") => {
         set((state) => ({
           answerRecords: {
             ...state.answerRecords,
@@ -128,9 +140,15 @@ export const useQuestionStore = create<QuestionStore>()(
               updatedAt: Date.now(),
             },
           },
-        })),
+        }));
+        syncService.saveAnswerRecord(
+          questionId,
+          status as PrismaQuestionStatus,
+          note
+        );
+      },
 
-      toggleFavorite: (questionId) =>
+      toggleFavorite: (questionId) => {
         set((state) => {
           const newFavorites = new Set(state.favorites);
           if (newFavorites.has(questionId)) {
@@ -139,7 +157,9 @@ export const useQuestionStore = create<QuestionStore>()(
             newFavorites.add(questionId);
           }
           return { favorites: newFavorites };
-        }),
+        });
+        syncService.toggleFavorite(questionId);
+      },
 
       isFavorite: (questionId) => get().favorites.has(questionId),
 

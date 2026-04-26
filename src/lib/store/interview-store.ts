@@ -5,6 +5,8 @@ import {
   type InterviewQuestion,
   getRandomQuestions,
 } from "@/lib/data/interview-questions";
+import { syncService } from "./sync-service";
+import { InterviewType as PrismaInterviewType } from "@prisma/client";
 
 // ==================== 类型定义 ====================
 
@@ -86,6 +88,9 @@ interface InterviewStore {
   resetInterview: () => void;
   clearHistory: () => void;
   setTyping: (typing: boolean) => void;
+
+  // 同步方法
+  setHistory: (history: InterviewHistory[]) => void;
 }
 
 // ==================== 辅助函数 ====================
@@ -535,6 +540,19 @@ export const useInterviewStore = create<InterviewStore>()(
       interviewResult,
       history: [historyItem, ...state.history],
     });
+
+    syncService.saveMockInterview(
+      state.interviewType as PrismaInterviewType,
+      typeLabels[state.interviewType],
+      new Date(interviewResult.startTime),
+      new Date(interviewResult.endTime),
+      interviewResult.duration,
+      interviewResult.overallScore,
+      interviewResult.maxScore,
+      interviewResult.questionResults.length,
+      interviewResult.summary,
+      interviewResult.suggestions
+    );
   },
 
   // 重置面试
@@ -561,6 +579,11 @@ export const useInterviewStore = create<InterviewStore>()(
   // 设置打字状态
   setTyping: (typing: boolean) => {
     set({ isTyping: typing });
+  },
+
+  // 同步方法
+  setHistory: (history) => {
+    set({ history });
   },
 }), {
   name: "interview-store",
