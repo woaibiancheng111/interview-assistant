@@ -1,6 +1,6 @@
 import { NextRequest } from "next/server";
 import { verifyToken, getTokenFromAuthorizationHeader } from "./jwt";
-import { redisClient } from "./redis";
+import { safeRedisOperation } from "./redis";
 
 export interface AuthUser {
   userId: string;
@@ -16,7 +16,11 @@ export async function getAuthenticatedUser(request: NextRequest): Promise<AuthUs
     return null;
   }
 
-  const isBlacklisted = await redisClient.get(`blacklist:${token}`);
+  const isBlacklisted = await safeRedisOperation(
+    (client) => client.get(`blacklist:${token}`),
+    null
+  );
+  
   if (isBlacklisted) {
     return null;
   }
