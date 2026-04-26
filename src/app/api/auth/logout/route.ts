@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTokenFromAuthorizationHeader } from "@/lib/server/jwt";
-import { redisClient } from "@/lib/server/redis";
+import { safeRedisOperation } from "@/lib/server/redis";
 
 const JWT_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60;
 
@@ -10,10 +10,14 @@ export async function POST(request: NextRequest) {
     const token = getTokenFromAuthorizationHeader(authHeader);
 
     if (token) {
-      await redisClient.setex(
-        `blacklist:${token}`,
-        JWT_EXPIRES_IN_SECONDS,
-        "true"
+      await safeRedisOperation(
+        (client) =>
+          client.setex(
+            `blacklist:${token}`,
+            JWT_EXPIRES_IN_SECONDS,
+            "true"
+          ),
+        "OK" as const
       );
     }
 
