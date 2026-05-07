@@ -25,9 +25,15 @@ import {
   Loader2,
   Copy,
   RefreshCw,
+  MapPin,
+  DollarSign,
+  Zap,
+  X,
+  ArrowRight,
 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useResumeStore } from "@/lib/store/resume-store";
+import { useJobStore } from "@/lib/store/job-store";
+import { useResumeStore, type JobMatchResult } from "@/lib/store/resume-store";
 import { useSettingsStore } from "@/lib/store/settings-store";
 import { analyzeKeywordMatch, extractHighlights, optimizeForJD } from "@/lib/api/ai";
 import type {
@@ -66,6 +72,14 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogFooter,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 const STEPS = [
   { id: "personal", label: "个人信息", icon: User },
@@ -73,6 +87,7 @@ const STEPS = [
   { id: "work", label: "工作经历", icon: Briefcase },
   { id: "project", label: "项目经历", icon: FolderGit2 },
   { id: "skills", label: "技能列表", icon: Wrench },
+  { id: "intent", label: "就业意向", icon: Target },
 ];
 
 const TEMPLATES = [
@@ -84,6 +99,12 @@ const TEMPLATES = [
 const DEGREE_OPTIONS = ["高中", "大专", "本科", "硕士", "博士", "其他"];
 
 const SKILL_CATEGORY_PRESETS = ["编程语言", "前端框架", "后端框架", "数据库", "工具与平台", "其他技能"];
+const POSITION_PRESETS = ["前端开发工程师", "后端开发工程师", "全栈开发工程师", "Java开发工程师", "Python开发工程师", "Go开发工程师", "算法工程师", "测试工程师", "运维工程师"];
+const LOCATION_PRESETS = ["北京", "上海", "广州", "深圳", "杭州", "成都", "武汉", "南京", "苏州", "远程", "全国"];
+const EMPLOYMENT_TYPE_PRESETS = ["全职", "实习", "远程", "兼职", "合同工"];
+const INDUSTRY_PRESETS = ["互联网", "金融科技", "电商", "在线教育", "人工智能", "云计算", "游戏", "企业服务", "其他"];
+const AVAILABILITY_PRESETS = ["随时到岗", "一周内到岗", "两周内到岗", "一个月内到岗", "在职考虑机会"];
+const SALARY_RANGE_PRESETS = ["5k-10k", "10k-15k", "15k-20k", "20k-30k", "30k-40k", "40k以上", "面议"];
 
 function getScoreColor(score: number) {
   if (score >= 80) return "text-green-600 dark:text-green-400";
@@ -445,6 +466,278 @@ function SkillsForm() {
           <Plus className="mr-2 h-4 w-4" />添加技能分类
         </Button>
       )}
+    </div>
+  );
+}
+
+function TagInput({
+  label,
+  value,
+  onChange,
+  presets,
+  placeholder,
+}: {
+  label: string;
+  value: string[];
+  onChange: (value: string[]) => void;
+  presets?: string[];
+  placeholder?: string;
+}) {
+  const [inputValue, setInputValue] = useState("");
+
+  const addValue = (raw: string) => {
+    const item = raw.trim();
+    if (!item || value.includes(item)) return;
+    onChange([...value, item]);
+    setInputValue("");
+  };
+
+  return (
+    <div className="flex flex-col gap-2">
+      <Label>{label}</Label>
+      <div className="flex flex-wrap gap-2 rounded-md border bg-background p-2">
+        {value.map((item) => (
+          <Badge key={item} variant="secondary" className="gap-1">
+            {item}
+            <button type="button" onClick={() => onChange(value.filter((v) => v !== item))}>
+              <X className="h-3 w-3" />
+            </button>
+          </Badge>
+        ))}
+        <input
+          className="min-w-[120px] flex-1 bg-transparent text-sm outline-none"
+          placeholder={placeholder ?? "输入后按回车添加"}
+          value={inputValue}
+          onChange={(event) => setInputValue(event.target.value)}
+          onKeyDown={(event) => {
+            if (event.key === "Enter" || event.key === ",") {
+              event.preventDefault();
+              addValue(inputValue);
+            }
+          }}
+        />
+      </div>
+      {presets && (
+        <div className="flex flex-wrap gap-1">
+          {presets.slice(0, 12).map((preset) => (
+            <Button
+              key={preset}
+              type="button"
+              variant="outline"
+              size="sm"
+              className="h-7 px-2 text-xs"
+              onClick={() => addValue(preset)}
+              disabled={value.includes(preset)}
+            >
+              {preset}
+            </Button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
+
+function JobIntentForm() {
+  const { jobIntent, updateJobIntent } = useResumeStore();
+
+  return (
+    <div className="flex flex-col gap-4">
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Target className="h-5 w-5" />
+            目标岗位
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <TagInput label="意向职位" value={jobIntent.desiredPositions} onChange={(v) => updateJobIntent({ desiredPositions: v })} presets={POSITION_PRESETS} />
+          <TagInput label="意向地点" value={jobIntent.desiredLocations} onChange={(v) => updateJobIntent({ desiredLocations: v })} presets={LOCATION_PRESETS} />
+        </CardContent>
+      </Card>
+
+      <Card>
+        <CardHeader className="pb-2">
+          <CardTitle className="flex items-center gap-2 text-base">
+            <DollarSign className="h-5 w-5" />
+            薪资与类型
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="flex flex-col gap-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            <div className="flex flex-col gap-2">
+              <Label>期望薪资</Label>
+              <Select value={jobIntent.salaryRange} onValueChange={(v) => updateJobIntent({ salaryRange: v ?? "" })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择薪资范围" />
+                </SelectTrigger>
+                <SelectContent>
+                  {SALARY_RANGE_PRESETS.map((range) => (
+                    <SelectItem key={range} value={range}>{range}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex flex-col gap-2">
+              <Label>到岗时间</Label>
+              <Select value={jobIntent.availability} onValueChange={(v) => updateJobIntent({ availability: v ?? "" })}>
+                <SelectTrigger>
+                  <SelectValue placeholder="请选择到岗时间" />
+                </SelectTrigger>
+                <SelectContent>
+                  {AVAILABILITY_PRESETS.map((item) => (
+                    <SelectItem key={item} value={item}>{item}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <TagInput label="工作类型" value={jobIntent.employmentType} onChange={(v) => updateJobIntent({ employmentType: v })} presets={EMPLOYMENT_TYPE_PRESETS} />
+          <TagInput label="行业偏好" value={jobIntent.industries} onChange={(v) => updateJobIntent({ industries: v })} presets={INDUSTRY_PRESETS} />
+          <TagInput label="目标技能" value={jobIntent.keySkills} onChange={(v) => updateJobIntent({ keySkills: v })} placeholder="React、Java、MySQL..." />
+          <div className="flex flex-col gap-2">
+            <Label>职业目标</Label>
+            <Textarea
+              className="min-h-[100px]"
+              placeholder="简述你希望进入的方向、成长目标或偏好的团队类型..."
+              value={jobIntent.careerGoals}
+              onChange={(event) => updateJobIntent({ careerGoals: event.target.value })}
+            />
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  );
+}
+
+function MatchDetailDialog({
+  result,
+  open,
+  onOpenChange,
+}: {
+  result: JobMatchResult | null;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+}) {
+  if (!result) return null;
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="max-h-[85vh] max-w-[calc(100vw-2rem)] overflow-y-auto sm:max-w-2xl">
+        <DialogHeader>
+          <DialogTitle>{result.companyName} · {result.position}</DialogTitle>
+        </DialogHeader>
+        <div className="flex flex-col gap-3">
+          {result.details.map((detail) => {
+            const percent = Math.round((detail.score / detail.maxScore) * 100);
+            return (
+              <Card key={detail.category}>
+                <CardHeader className="pb-2">
+                  <CardTitle className="flex items-center justify-between text-sm">
+                    {detail.category}
+                    <span>{percent}%</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent className="flex flex-col gap-2">
+                  <Progress value={percent} />
+                  <p className="text-xs text-muted-foreground">{detail.explanation}</p>
+                  {detail.matchedItems.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {detail.matchedItems.slice(0, 8).map((item) => (
+                        <Badge key={item} variant="secondary">{item}</Badge>
+                      ))}
+                    </div>
+                  )}
+                  {detail.missingItems.length > 0 && (
+                    <div className="flex flex-wrap gap-1">
+                      {detail.missingItems.slice(0, 8).map((item) => (
+                        <Badge key={item} variant="outline" className="border-yellow-500/50 text-yellow-600">{item}</Badge>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            );
+          })}
+        </div>
+        <DialogFooter>
+          <DialogClose render={<Button variant="outline" />}>关闭</DialogClose>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+function MatchResultsPanel() {
+  const { jobList } = useJobStore();
+  const { matchWithJobs, matchResults } = useResumeStore();
+  const [selectedResult, setSelectedResult] = useState<JobMatchResult | null>(null);
+
+  const handleMatch = () => {
+    matchWithJobs(jobList);
+  };
+
+  return (
+    <div className="flex flex-col gap-4">
+      <div className="flex items-center justify-between gap-3">
+        <div>
+          <h3 className="font-semibold">岗位匹配分析</h3>
+          <p className="text-xs text-muted-foreground">基于简历、就业意向和求职管理中的岗位计算匹配度</p>
+        </div>
+        <Button size="sm" onClick={handleMatch} disabled={jobList.length === 0}>
+          <Zap className="mr-2 h-4 w-4" />
+          开始匹配
+        </Button>
+      </div>
+
+      {jobList.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            <Briefcase className="mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">暂无岗位数据，请先在求职管理中添加岗位。</p>
+          </CardContent>
+        </Card>
+      ) : matchResults.length === 0 ? (
+        <Card>
+          <CardContent className="flex flex-col items-center justify-center py-8 text-center">
+            <MapPin className="mb-3 h-10 w-10 text-muted-foreground" />
+            <p className="text-sm text-muted-foreground">共有 {jobList.length} 个岗位可分析。</p>
+          </CardContent>
+        </Card>
+      ) : (
+        <div className="flex flex-col gap-3">
+          {matchResults.map((result) => (
+            <Card key={result.jobId}>
+              <CardContent className="flex flex-col gap-3 pt-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div className="min-w-0">
+                    <p className="truncate font-medium">{result.companyName}</p>
+                    <p className="truncate text-sm text-muted-foreground">{result.position}</p>
+                  </div>
+                  <Badge variant={result.overallPercentage >= 70 ? "default" : result.overallPercentage >= 45 ? "secondary" : "destructive"}>
+                    {result.overallPercentage}%
+                  </Badge>
+                </div>
+                <Progress value={result.overallPercentage} />
+                <div className="flex flex-wrap gap-1">
+                  {result.strengths.slice(0, 3).map((item) => (
+                    <Badge key={item} variant="secondary" className="text-xs">{item}</Badge>
+                  ))}
+                  {result.gaps.slice(0, 3).map((item) => (
+                    <Badge key={item} variant="outline" className="text-xs">{item}</Badge>
+                  ))}
+                </div>
+                <Button variant="ghost" size="sm" onClick={() => setSelectedResult(result)}>
+                  查看详情
+                  <ArrowRight className="ml-2 h-3 w-3" />
+                </Button>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
+      )}
+
+      <MatchDetailDialog result={selectedResult} open={!!selectedResult} onOpenChange={(open) => !open && setSelectedResult(null)} />
     </div>
   );
 }
@@ -1219,6 +1512,7 @@ export default function ResumePage() {
                   {activeStep === 2 && <WorkExperienceForm />}
                   {activeStep === 3 && <ProjectExperienceForm />}
                   {activeStep === 4 && <SkillsForm />}
+                  {activeStep === 5 && <JobIntentForm />}
                 </CardContent>
               </Card>
               <div className="flex justify-between">
@@ -1230,7 +1524,26 @@ export default function ResumePage() {
                 </Button>
               </div>
             </div>
-            <div className="min-w-0"><AIResumeOptimizerPanel /></div>
+            <div className="min-w-0">
+              <Tabs defaultValue="ai">
+                <TabsList className="mb-4 grid w-full grid-cols-2">
+                  <TabsTrigger value="ai">
+                    <Sparkles className="mr-2 h-4 w-4" />
+                    简历优化
+                  </TabsTrigger>
+                  <TabsTrigger value="match">
+                    <Zap className="mr-2 h-4 w-4" />
+                    岗位匹配
+                  </TabsTrigger>
+                </TabsList>
+                <TabsContent value="ai">
+                  <AIResumeOptimizerPanel />
+                </TabsContent>
+                <TabsContent value="match">
+                  <MatchResultsPanel />
+                </TabsContent>
+              </Tabs>
+            </div>
           </div>
         )}
         {activeView === "preview" && (
