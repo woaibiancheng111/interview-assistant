@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser, createUnauthorizedResponse } from "@/lib/server/auth";
 import prisma from "@/lib/server/prisma";
-import { InterviewType } from "@prisma/client";
+import { InterviewType, type MockInterview } from "@prisma/client";
 
 function parseSuggestions(suggestions: string): string[] {
   try {
@@ -11,7 +11,7 @@ function parseSuggestions(suggestions: string): string[] {
   }
 }
 
-function formatInterview(interview: any) {
+function formatInterview(interview: MockInterview) {
   return {
     ...interview,
     suggestions: parseSuggestions(interview.suggestions),
@@ -30,7 +30,7 @@ export async function GET(request: NextRequest) {
     const type = searchParams.get("type") as InterviewType | null;
     const limit = searchParams.get("limit");
 
-    let where: Record<string, unknown> = {
+    const where: Record<string, unknown> = {
       userId: user.userId,
     };
 

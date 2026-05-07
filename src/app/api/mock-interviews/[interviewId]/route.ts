@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser, createUnauthorizedResponse } from "@/lib/server/auth";
 import prisma from "@/lib/server/prisma";
+import type { MockInterview } from "@prisma/client";
 
 function parseSuggestions(suggestions: string): string[] {
   try {
@@ -10,7 +11,7 @@ function parseSuggestions(suggestions: string): string[] {
   }
 }
 
-function formatInterview(interview: any) {
+function formatInterview(interview: MockInterview) {
   return {
     ...interview,
     suggestions: parseSuggestions(interview.suggestions),

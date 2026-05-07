@@ -2,19 +2,16 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 
 export interface AISettings {
-  dashscopeApiKey: string;
   dashscopeModel: string;
 }
 
 interface SettingsStore {
   aiSettings: AISettings;
-  setDashscopeApiKey: (apiKey: string) => void;
   setDashscopeModel: (model: string) => void;
   resetAISettings: () => void;
 }
 
 const defaultAISettings: AISettings = {
-  dashscopeApiKey: process.env.NEXT_PUBLIC_BAILIAN_API_KEY || "",
   dashscopeModel: "qwen-plus",
 };
 
@@ -22,11 +19,6 @@ export const useSettingsStore = create<SettingsStore>()(
   persist(
     (set) => ({
       aiSettings: { ...defaultAISettings },
-
-      setDashscopeApiKey: (apiKey) =>
-        set((state) => ({
-          aiSettings: { ...state.aiSettings, dashscopeApiKey: apiKey },
-        })),
 
       setDashscopeModel: (model) =>
         set((state) => ({

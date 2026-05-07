@@ -20,8 +20,6 @@ import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Separator } from "@/components/ui/separator";
-import { Markdown } from "@/components/ui/markdown";
-import { Skeleton } from "@/components/ui/skeleton";
 
 import {
   Select,
@@ -30,12 +28,6 @@ import {
   SelectContent,
   SelectItem,
 } from "@/components/ui/select";
-import {
-  Accordion,
-  AccordionItem,
-  AccordionTrigger,
-  AccordionContent,
-} from "@/components/ui/accordion";
 import {
   Search,
   Filter,
@@ -189,7 +181,7 @@ export default function QuestionsPage() {
 
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false);
 
-  const filteredQuestions = useMemo(() => getFilteredQuestions(), [filters, getFilteredQuestions]);
+  const filteredQuestions = useMemo(() => getFilteredQuestions(), [getFilteredQuestions]);
   const stats = useMemo(() => getStats(), [getStats]);
   const allTags = useMemo(() => getAllTags(), [getAllTags]);
   const hydrated = useHydration();
@@ -210,11 +202,11 @@ export default function QuestionsPage() {
   const favoriteCount = hydrated ? favorites.size : 0;
 
   return (
-    <div className="flex h-full">
+    <div className="flex h-full overflow-x-hidden pb-16 md:pb-0">
       {/* 左侧分类导航 */}
       <aside
         className={cn(
-          "flex-shrink-0 border-r border-border bg-card transition-all duration-200",
+          "hidden flex-shrink-0 border-r border-border bg-card transition-all duration-200 md:block",
           sidebarCollapsed ? "w-12" : "w-56"
         )}
       >
@@ -348,9 +340,28 @@ export default function QuestionsPage() {
       {/* 主内容区 */}
       <main className="flex-1 flex flex-col min-w-0">
         {/* 顶部筛选栏 */}
-        <div className="flex items-center gap-3 p-3 border-b border-border bg-card flex-wrap">
+        <div className="flex flex-col gap-3 border-b border-border bg-card p-3 md:flex-row md:items-center md:flex-wrap">
+          <div className="md:hidden">
+            <Select
+              value={filters.category}
+              onValueChange={(v) => setCategory(v as Category | "all" | "favorites")}
+            >
+              <SelectTrigger className="w-full">
+                <SelectValue placeholder="题库分类" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部题目</SelectItem>
+                <SelectItem value="favorites">我的收藏</SelectItem>
+                {categories.map((cat) => (
+                  <SelectItem key={cat} value={cat}>
+                    {cat}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           {/* 搜索框 */}
-          <div className="relative flex-1 min-w-[200px] max-w-md">
+          <div className="relative min-w-0 flex-1 md:min-w-[200px] md:max-w-md">
             <Search className="absolute left-2.5 top-1/2 -translate-y-1/2 size-4 text-muted-foreground" />
             <Input
               placeholder="搜索题目、标签..."
@@ -371,36 +382,38 @@ export default function QuestionsPage() {
           </div>
 
           {/* 难度筛选 */}
-          <Select
-            value={filters.difficulty}
-            onValueChange={(v) => setDifficulty(v as Difficulty | "all")}
-          >
-            <SelectTrigger className="w-[100px]">
-              <SelectValue placeholder="难度" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部难度</SelectItem>
-              <SelectItem value="easy">简单</SelectItem>
-              <SelectItem value="medium">中等</SelectItem>
-              <SelectItem value="hard">困难</SelectItem>
-            </SelectContent>
-          </Select>
+          <div className="grid grid-cols-2 gap-2 md:flex md:gap-3">
+            <Select
+              value={filters.difficulty}
+              onValueChange={(v) => setDifficulty(v as Difficulty | "all")}
+            >
+              <SelectTrigger className="w-full md:w-[100px]">
+                <SelectValue placeholder="难度" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部难度</SelectItem>
+                <SelectItem value="easy">简单</SelectItem>
+                <SelectItem value="medium">中等</SelectItem>
+                <SelectItem value="hard">困难</SelectItem>
+              </SelectContent>
+            </Select>
 
-          {/* 状态筛选 */}
-          <Select
-            value={filters.status}
-            onValueChange={(v) => setStatus(v as QuestionStatus | "all")}
-          >
-            <SelectTrigger className="w-[100px]">
-              <SelectValue placeholder="状态" />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">全部状态</SelectItem>
-              <SelectItem value="none">未做</SelectItem>
-              <SelectItem value="completed">已掌握</SelectItem>
-              <SelectItem value="review">需复习</SelectItem>
-            </SelectContent>
-          </Select>
+            {/* 状态筛选 */}
+            <Select
+              value={filters.status}
+              onValueChange={(v) => setStatus(v as QuestionStatus | "all")}
+            >
+              <SelectTrigger className="w-full md:w-[100px]">
+                <SelectValue placeholder="状态" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">全部状态</SelectItem>
+                <SelectItem value="none">未做</SelectItem>
+                <SelectItem value="completed">已掌握</SelectItem>
+                <SelectItem value="review">需复习</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
 
           {/* 重置筛选 */}
           {(filters.category !== "all" ||
@@ -414,7 +427,7 @@ export default function QuestionsPage() {
           )}
 
           {/* 结果计数 */}
-          <span className="text-sm text-muted-foreground ml-auto">
+          <span className="text-sm text-muted-foreground md:ml-auto">
             共 {filteredQuestions.length} 题
           </span>
         </div>

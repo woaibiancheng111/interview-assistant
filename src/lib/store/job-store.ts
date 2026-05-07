@@ -1,10 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { syncService } from "./sync-service";
-import {
-  JobStatus as PrismaJobStatus,
-  InterviewResult as PrismaInterviewResult,
-} from "@prisma/client";
 
 // ==================== 类型定义 ====================
 
@@ -27,7 +23,7 @@ export type InterviewResult = "pending" | "passed" | "failed" | "cancelled";
 
 export interface InterviewRecord {
   id: string;
-  jobId: string;
+  jobId: string | null;
   companyName: string;
   position: string;
   round: string;
@@ -36,6 +32,7 @@ export interface InterviewRecord {
   result: InterviewResult;
   notes: string;
   interviewer: string;
+  updatedAt: string;
 }
 
 export interface JobStatistics {
@@ -59,7 +56,7 @@ export interface JobState {
   updateJobStatus: (id: string, status: JobStatus) => void;
 
   // 面试操作
-  addInterview: (interview: Omit<InterviewRecord, "id">) => void;
+  addInterview: (interview: Omit<InterviewRecord, "id" | "updatedAt">) => void;
   updateInterview: (id: string, interview: Partial<InterviewRecord>) => void;
   removeInterview: (id: string) => void;
 
@@ -80,9 +77,12 @@ export interface JobState {
 
 // ==================== 工具函数 ====================
 
-const generateId = () => Math.random().toString(36).substring(2, 11);
+const generateId = () =>
+  typeof crypto !== "undefined" && "randomUUID" in crypto
+    ? crypto.randomUUID()
+    : Math.random().toString(36).substring(2, 11);
 
-const getNow = () => new Date().toISOString().split("T")[0];
+const getNowIso = () => new Date().toISOString();
 
 // ==================== Store ====================
 
@@ -101,7 +101,7 @@ export const useJobStore = create<JobState>()(
         const newJob: JobApplication = {
           ...job,
           id: generateId(),
-          lastUpdated: getNow(),
+          lastUpdated: getNowIso(),
         };
         set((state) => ({
           jobList: [...state.jobList, newJob],
@@ -112,7 +112,7 @@ export const useJobStore = create<JobState>()(
       updateJob: (id, job) => {
         set((state) => ({
           jobList: state.jobList.map((j) =>
-            j.id === id ? { ...j, ...job, lastUpdated: getNow() } : j
+            j.id === id ? { ...j, ...job, lastUpdated: getNowIso() } : j
           ),
         }));
         const updatedJob = get().jobList.find((j) => j.id === id);
@@ -132,7 +132,7 @@ export const useJobStore = create<JobState>()(
       updateJobStatus: (id, status) => {
         set((state) => ({
           jobList: state.jobList.map((j) =>
-            j.id === id ? { ...j, status, lastUpdated: getNow() } : j
+            j.id === id ? { ...j, status, lastUpdated: getNowIso() } : j
           ),
         }));
         const updatedJob = get().jobList.find((j) => j.id === id);
@@ -146,6 +146,7 @@ export const useJobStore = create<JobState>()(
         const newInterview: InterviewRecord = {
           ...interview,
           id: generateId(),
+          updatedAt: getNowIso(),
         };
         set((state) => ({
           interviewRecords: [...state.interviewRecords, newInterview],
@@ -156,7 +157,7 @@ export const useJobStore = create<JobState>()(
       updateInterview: (id, interview) => {
         set((state) => ({
           interviewRecords: state.interviewRecords.map((i) =>
-            i.id === id ? { ...i, ...interview } : i
+            i.id === id ? { ...i, ...interview, updatedAt: getNowIso() } : i
           ),
         }));
         const updatedInterview = get().interviewRecords.find((i) => i.id === id);

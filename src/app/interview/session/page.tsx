@@ -16,7 +16,6 @@ import {
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import {
-  Card,
   CardHeader,
   CardTitle,
   CardContent,
@@ -26,10 +25,7 @@ import { Progress } from "@/components/ui/progress";
 import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import { Avatar, AvatarFallback } from "@/components/ui/avatar";
-import {
-  type InterviewType,
-  interviewTypeConfig,
-} from "@/lib/data/interview-questions";
+import { interviewTypeConfig } from "@/lib/data/interview-questions";
 import { useInterviewStore } from "@/lib/store/interview-store";
 
 export default function InterviewSessionPage() {

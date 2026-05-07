@@ -35,7 +35,12 @@ export interface ResumeOptimizationResult {
   }[];
 }
 
-function buildResumeContext(state: ResumeState): string {
+export type ResumeSnapshot = Pick<
+  ResumeState,
+  "personalInfo" | "educationList" | "workExperienceList" | "projectExperienceList" | "skillCategories"
+>;
+
+function buildResumeContext(state: ResumeSnapshot): string {
   const { personalInfo, educationList, workExperienceList, projectExperienceList, skillCategories } = state;
 
   let context = `
@@ -100,8 +105,15 @@ GitHub：${personalInfo.github || "未填写"}
   return context;
 }
 
+function getDashscopeApiKey(): string {
+  const apiKey = process.env.BAILIAN_API_KEY || process.env.DASHSCOPE_API_KEY;
+  if (!apiKey) {
+    throw new Error("AI 服务未配置，请联系管理员");
+  }
+  return apiKey;
+}
+
 async function callDashscopeAPI(
-  apiKey: string,
   model: string,
   prompt: string,
   options?: {
@@ -109,9 +121,7 @@ async function callDashscopeAPI(
     maxTokens?: number;
   }
 ): Promise<string> {
-  if (!apiKey) {
-    throw new Error("请先在设置中配置百炼 API Key");
-  }
+  const apiKey = getDashscopeApiKey();
 
   const response = await fetch(
     "https://dashscope.aliyuncs.com/compatible-mode/v1/chat/completions",
@@ -153,10 +163,9 @@ async function callDashscopeAPI(
 }
 
 export async function analyzeKeywordMatch(
-  apiKey: string,
   model: string,
   jdText: string,
-  resumeState: ResumeState
+  resumeState: ResumeSnapshot
 ): Promise<KeywordAnalysisResult> {
   const resumeContext = buildResumeContext(resumeState);
 
@@ -211,7 +220,7 @@ ${resumeContext}
 
 只返回 JSON，不要有其他解释。`;
 
-  const output = await callDashscopeAPI(apiKey, model, prompt, {
+  const output = await callDashscopeAPI(model, prompt, {
     temperature: 0.1,
     maxTokens: 2000,
   });
@@ -233,9 +242,8 @@ ${resumeContext}
 }
 
 export async function extractHighlights(
-  apiKey: string,
   model: string,
-  resumeState: ResumeState
+  resumeState: ResumeSnapshot
 ): Promise<HighlightExtraction[]> {
   const resumeContext = buildResumeContext(resumeState);
 
@@ -269,7 +277,7 @@ ${resumeContext}
 
 只返回 JSON，不要有其他解释。`;
 
-  const output = await callDashscopeAPI(apiKey, model, prompt, {
+  const output = await callDashscopeAPI(model, prompt, {
     temperature: 0.7,
     maxTokens: 2000,
   });
@@ -291,10 +299,9 @@ ${resumeContext}
 }
 
 export async function optimizeForJD(
-  apiKey: string,
   model: string,
   jdText: string,
-  resumeState: ResumeState
+  resumeState: ResumeSnapshot
 ): Promise<ResumeOptimizationResult> {
   const resumeContext = buildResumeContext(resumeState);
 
@@ -350,7 +357,7 @@ ${resumeContext}
 
 只返回 JSON，不要有其他解释。`;
 
-  const output = await callDashscopeAPI(apiKey, model, prompt, {
+  const output = await callDashscopeAPI(model, prompt, {
     temperature: 0.7,
     maxTokens: 3000,
   });

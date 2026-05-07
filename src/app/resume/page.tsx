@@ -29,13 +29,12 @@ import {
 import { cn } from "@/lib/utils";
 import { useResumeStore } from "@/lib/store/resume-store";
 import { useSettingsStore } from "@/lib/store/settings-store";
-import {
-  analyzeKeywordMatch,
-  extractHighlights,
-  optimizeForJD,
-  type KeywordAnalysisResult,
-  type HighlightExtraction,
-  type ResumeOptimizationResult,
+import { analyzeKeywordMatch, extractHighlights, optimizeForJD } from "@/lib/api/ai";
+import type {
+  KeywordAnalysisResult,
+  HighlightExtraction,
+  ResumeOptimizationResult,
+  ResumeSnapshot,
 } from "@/lib/services/ai-service";
 
 import { Button } from "@/components/ui/button";
@@ -711,8 +710,6 @@ function ResumePreview() {
 
 function JDInputSection() {
   const { aiAnalysis, updateJDText } = useResumeStore();
-  const { aiSettings } = useSettingsStore();
-  const hasApiKey = aiSettings.dashscopeApiKey.trim().length > 0;
 
   return (
     <Card>
@@ -722,11 +719,7 @@ function JDInputSection() {
             <Target className="h-5 w-5 text-primary" />
             <CardTitle className="text-base">职位描述 (JD)</CardTitle>
           </div>
-          {!hasApiKey && (
-            <Badge variant="outline" className="text-yellow-600 dark:text-yellow-400">
-              <AlertTriangle className="mr-1 h-3 w-3" />未配置 API Key
-            </Badge>
-          )}
+          <Badge variant="outline" className="text-xs">AI 由服务器配置</Badge>
         </div>
         <CardDescription>粘贴目标职位的招聘描述，AI 将根据 JD 分析并优化你的简历</CardDescription>
       </CardHeader>
@@ -749,14 +742,6 @@ function JDInputSection() {
           value={aiAnalysis.jdText}
           onChange={(e) => updateJDText(e.target.value)}
         />
-        {!hasApiKey && (
-          <Alert className="mt-3">
-            <AlertTriangle className="h-4 w-4" />
-            <AlertDescription className="text-xs">
-              请先在 <a href="/settings" className="text-primary hover:underline">设置</a> 中配置百炼大模型 API Key 以启用 AI 优化功能
-            </AlertDescription>
-          </Alert>
-        )}
       </CardContent>
     </Card>
   );
@@ -1061,22 +1046,38 @@ function AIResumeOptimizerPanel() {
   const { aiAnalysis, setIsAnalyzing, setAnalysisError, setKeywordAnalysis, setHighlights, setOptimizationResult, clearAIAnalysis } = resumeState;
   const [activeTab, setActiveTab] = useState<string>("input");
 
-  const hasApiKey = aiSettings.dashscopeApiKey.trim().length > 0;
   const hasJD = aiAnalysis.jdText.trim().length > 0;
 
   const handleAnalyze = useCallback(async () => {
-    if (!hasApiKey) { setAnalysisError("请先在设置中配置 API Key"); return; }
     setIsAnalyzing(true);
     setAnalysisError(null);
+    const resumeSnapshot: ResumeSnapshot = {
+      personalInfo: resumeState.personalInfo,
+      educationList: resumeState.educationList,
+      workExperienceList: resumeState.workExperienceList,
+      projectExperienceList: resumeState.projectExperienceList,
+      skillCategories: resumeState.skillCategories,
+    };
     try {
       if (hasJD) {
-        const keywordResult = await analyzeKeywordMatch(aiSettings.dashscopeApiKey, aiSettings.dashscopeModel, aiAnalysis.jdText, resumeState);
+        const keywordResult = await analyzeKeywordMatch(
+          aiSettings.dashscopeModel,
+          aiAnalysis.jdText,
+          resumeSnapshot
+        );
         setKeywordAnalysis(keywordResult);
       }
-      const highlights = await extractHighlights(aiSettings.dashscopeApiKey, aiSettings.dashscopeModel, resumeState);
+      const highlights = await extractHighlights(
+        aiSettings.dashscopeModel,
+        resumeSnapshot
+      );
       setHighlights(highlights);
       if (hasJD) {
-        const optResult = await optimizeForJD(aiSettings.dashscopeApiKey, aiSettings.dashscopeModel, aiAnalysis.jdText, resumeState);
+        const optResult = await optimizeForJD(
+          aiSettings.dashscopeModel,
+          aiAnalysis.jdText,
+          resumeSnapshot
+        );
         setOptimizationResult(optResult);
       }
       if (hasJD) setActiveTab("keywords");
@@ -1086,7 +1087,7 @@ function AIResumeOptimizerPanel() {
     } finally {
       setIsAnalyzing(false);
     }
-  }, [hasApiKey, hasJD, aiSettings, aiAnalysis.jdText, resumeState, setIsAnalyzing, setAnalysisError, setKeywordAnalysis, setHighlights, setOptimizationResult]);
+  }, [hasJD, aiSettings.dashscopeModel, aiAnalysis.jdText, resumeState, setIsAnalyzing, setAnalysisError, setKeywordAnalysis, setHighlights, setOptimizationResult]);
 
   const hasResults = aiAnalysis.keywordAnalysis || aiAnalysis.highlights || aiAnalysis.optimizationResult;
 
@@ -1099,7 +1100,7 @@ function AIResumeOptimizerPanel() {
         </div>
         <div className="flex gap-2">
           {hasResults && <Button variant="outline" size="sm" onClick={clearAIAnalysis}>清除结果</Button>}
-          <Button size="sm" onClick={handleAnalyze} disabled={aiAnalysis.isAnalyzing || !hasApiKey}>
+          <Button size="sm" onClick={handleAnalyze} disabled={aiAnalysis.isAnalyzing}>
             {aiAnalysis.isAnalyzing ? (
               <><Loader2 className="mr-2 h-4 w-4 animate-spin" />分析中...</>
             ) : (
@@ -1162,14 +1163,14 @@ export default function ResumePage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-6">
-        <div className="mb-6 flex items-center justify-between">
+    <div className="min-h-screen overflow-x-hidden bg-background pb-16 md:pb-0">
+      <div className="mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-6">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">简历管理</h1>
             <p className="text-sm text-muted-foreground">创建、编辑和优化你的简历</p>
           </div>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-2 gap-2 sm:flex">
             <Button variant="outline" size="sm" onClick={resetResume}>
               <RotateCcw className="mr-2 h-4 w-4" />重置
             </Button>
@@ -1179,15 +1180,15 @@ export default function ResumePage() {
           </div>
         </div>
         <Tabs value={activeView} onValueChange={(v) => setActiveView((v ?? "edit") as "edit" | "preview")} className="mb-6">
-          <TabsList>
+          <TabsList className="grid w-full grid-cols-2 sm:w-auto">
             <TabsTrigger value="edit"><Wrench className="mr-2 h-4 w-4" />编辑简历</TabsTrigger>
             <TabsTrigger value="preview"><Eye className="mr-2 h-4 w-4" />预览简历</TabsTrigger>
           </TabsList>
         </Tabs>
         {activeView === "edit" && (
-          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_360px]">
+          <div className="grid grid-cols-1 gap-6 lg:grid-cols-[minmax(0,1fr)_360px]">
             <div className="flex flex-col gap-4">
-              <div className="flex items-center gap-1 overflow-x-auto rounded-lg border bg-card p-1">
+              <div className="sticky top-14 z-20 flex items-center gap-1 overflow-x-auto rounded-lg border bg-card p-1 md:static">
                 {STEPS.map((step, index) => {
                   const Icon = step.icon;
                   return (
@@ -1195,7 +1196,7 @@ export default function ResumePage() {
                       key={step.id}
                       onClick={() => setActiveStep(index)}
                       className={cn(
-                        "flex flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors",
+                        "flex min-w-[3rem] flex-1 items-center justify-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors sm:min-w-[6rem]",
                         activeStep === index ? "bg-primary text-primary-foreground" : "text-muted-foreground hover:bg-accent hover:text-accent-foreground"
                       )}
                     >
@@ -1229,7 +1230,7 @@ export default function ResumePage() {
                 </Button>
               </div>
             </div>
-            <div><AIResumeOptimizerPanel /></div>
+            <div className="min-w-0"><AIResumeOptimizerPanel /></div>
           </div>
         )}
         {activeView === "preview" && (
@@ -1258,7 +1259,7 @@ export default function ResumePage() {
                 </div>
               </CardContent>
             </Card>
-            <div id="resume-preview-content"><ResumePreview /></div>
+            <div id="resume-preview-content" className="overflow-x-auto"><ResumePreview /></div>
           </div>
         )}
       </div>

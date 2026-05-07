@@ -4,7 +4,6 @@ import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { Eye, EyeOff, Loader2, User, Mail, Lock, ArrowRight } from "lucide-react";
 import { useAuthStore } from "@/lib/store/auth-store";
-import { cn } from "@/lib/utils";
 
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -88,18 +87,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-50 to-slate-100 dark:from-slate-900 dark:to-slate-800 flex items-center justify-center p-4">
+    <div className="flex min-h-screen items-center justify-center bg-background p-3 sm:p-4">
       <Card className="w-full max-w-md shadow-lg">
-        <CardHeader className="text-center">
-          <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-primary/10">
-            <User className="h-8 w-8 text-primary" />
+        <CardHeader className="px-4 text-center sm:px-6">
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-primary/10 sm:h-16 sm:w-16">
+            <User className="h-7 w-7 text-primary sm:h-8 sm:w-8" />
           </div>
-          <CardTitle className="text-2xl">面试助手</CardTitle>
+          <CardTitle className="text-xl sm:text-2xl">面试助手</CardTitle>
           <CardDescription>
             登录以同步您的刷题记录和面试数据
           </CardDescription>
         </CardHeader>
-        <CardContent>
+        <CardContent className="px-4 sm:px-6">
           <Tabs defaultValue="login" className="w-full">
             <TabsList className="grid w-full grid-cols-2 mb-6">
               <TabsTrigger value="login">登录</TabsTrigger>
@@ -256,7 +255,7 @@ export default function LoginPage() {
           </Tabs>
 
           <div className="mt-6 text-center text-sm text-muted-foreground">
-            <p>💡 提示：未登录时数据将保存到本地</p>
+            <p>提示：未登录时数据将保存到本地</p>
             <p>登录后可跨设备同步数据</p>
           </div>
         </CardContent>

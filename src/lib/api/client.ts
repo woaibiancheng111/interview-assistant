@@ -1,20 +1,5 @@
 const API_BASE_URL = "";
 
-function getAuthToken(): string | null {
-  if (typeof window === "undefined") return null;
-  return localStorage.getItem("auth_token");
-}
-
-function setAuthToken(token: string): void {
-  if (typeof window === "undefined") return;
-  localStorage.setItem("auth_token", token);
-}
-
-function removeAuthToken(): void {
-  if (typeof window === "undefined") return;
-  localStorage.removeItem("auth_token");
-}
-
 interface ApiResponse<T = unknown> {
   success: boolean;
   message: string;
@@ -25,16 +10,10 @@ async function request<T>(
   url: string,
   options: RequestInit = {}
 ): Promise<ApiResponse<T>> {
-  const token = getAuthToken();
-
   const headers: HeadersInit = {
     "Content-Type": "application/json",
     ...(options.headers as Record<string, string>),
   };
-
-  if (token) {
-    headers["Authorization"] = `Bearer ${token}`;
-  }
 
   try {
     const response = await fetch(`${API_BASE_URL}${url}`, {
@@ -50,8 +29,9 @@ async function request<T>(
       
       if (!response.ok) {
         if (response.status === 401) {
-          removeAuthToken();
-          window.dispatchEvent(new CustomEvent("auth:logout"));
+          if (typeof window !== "undefined") {
+            window.dispatchEvent(new CustomEvent("auth:logout"));
+          }
         }
         throw new Error(`服务器错误 (${response.status})：请确保数据库和 Redis 服务已启动`);
       }
@@ -62,8 +42,9 @@ async function request<T>(
 
     if (!response.ok) {
       if (response.status === 401) {
-        removeAuthToken();
-        window.dispatchEvent(new CustomEvent("auth:logout"));
+        if (typeof window !== "undefined") {
+          window.dispatchEvent(new CustomEvent("auth:logout"));
+        }
       }
       throw new Error(data.message || "请求失败");
     }
@@ -89,5 +70,3 @@ export const apiClient = {
     }),
   delete: <T>(url: string) => request<T>(url, { method: "DELETE" }),
 };
-
-export { getAuthToken, setAuthToken, removeAuthToken };

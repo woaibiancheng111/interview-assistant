@@ -4,7 +4,6 @@ import {
   getFavorites,
   toggleFavorite as apiToggleFavorite,
   AnswerRecord as ApiAnswerRecord,
-  Favorite as ApiFavorite,
 } from "@/lib/api/questions";
 import {
   getJobs,
@@ -23,8 +22,12 @@ import {
   createMockInterview,
   MockInterview as ApiMockInterview,
 } from "@/lib/api/mock-interviews";
-import { isAuthenticated } from "@/lib/api/auth";
+import { useAuthStore } from "@/lib/store/auth-store";
 import { QuestionStatus, JobStatus, InterviewResult, InterviewType } from "@prisma/client";
+
+function isLoggedIn(): boolean {
+  return useAuthStore.getState().isLoggedIn;
+}
 
 export interface LocalAnswerRecord {
   questionId: string;
@@ -48,7 +51,7 @@ export interface LocalJobApplication {
 
 export interface LocalInterviewRecord {
   id: string;
-  jobId: string;
+  jobId: string | null;
   companyName: string;
   position: string;
   round: string;
@@ -57,6 +60,7 @@ export interface LocalInterviewRecord {
   result: InterviewResult;
   notes: string;
   interviewer: string;
+  updatedAt: string;
 }
 
 export interface LocalMockInterview {
@@ -105,6 +109,7 @@ function convertApiInterviewRecord(api: ApiInterviewRecord): LocalInterviewRecor
     result: api.result,
     notes: api.notes,
     interviewer: api.interviewer,
+    updatedAt: api.updatedAt,
   };
 }
 
@@ -122,7 +127,7 @@ function convertApiMockInterview(api: ApiMockInterview): LocalMockInterview {
 
 export const syncService = {
   async syncAnswerRecordsFromApi(): Promise<Record<string, LocalAnswerRecord>> {
-    if (!isAuthenticated()) return {};
+    if (!isLoggedIn()) return {};
 
     try {
       const records = await getAnswerRecords();
@@ -138,7 +143,7 @@ export const syncService = {
   },
 
   async syncFavoritesFromApi(): Promise<Set<string>> {
-    if (!isAuthenticated()) return new Set();
+    if (!isLoggedIn()) return new Set();
 
     try {
       const favorites = await getFavorites();
@@ -150,7 +155,7 @@ export const syncService = {
   },
 
   async syncJobsFromApi(): Promise<LocalJobApplication[]> {
-    if (!isAuthenticated()) return [];
+    if (!isLoggedIn()) return [];
 
     try {
       const jobs = await getJobs();
@@ -162,7 +167,7 @@ export const syncService = {
   },
 
   async syncInterviewsFromApi(): Promise<LocalInterviewRecord[]> {
-    if (!isAuthenticated()) return [];
+    if (!isLoggedIn()) return [];
 
     try {
       const interviews = await getInterviews();
@@ -174,7 +179,7 @@ export const syncService = {
   },
 
   async syncMockInterviewsFromApi(): Promise<LocalMockInterview[]> {
-    if (!isAuthenticated()) return [];
+    if (!isLoggedIn()) return [];
 
     try {
       const interviews = await getMockInterviews();
@@ -186,7 +191,7 @@ export const syncService = {
   },
 
   async saveAnswerRecord(questionId: string, status: QuestionStatus, note: string): Promise<void> {
-    if (!isAuthenticated()) return;
+    if (!isLoggedIn()) return;
 
     try {
       await upsertAnswerRecord({ questionId, status, note });
@@ -196,7 +201,7 @@ export const syncService = {
   },
 
   async toggleFavorite(questionId: string): Promise<boolean> {
-    if (!isAuthenticated()) return false;
+    if (!isLoggedIn()) return false;
 
     try {
       return await apiToggleFavorite(questionId);
@@ -207,7 +212,7 @@ export const syncService = {
   },
 
   async saveJob(job: LocalJobApplication): Promise<void> {
-    if (!isAuthenticated()) return;
+    if (!isLoggedIn()) return;
 
     try {
       const existingJobs = await getJobs();
@@ -241,7 +246,7 @@ export const syncService = {
   },
 
   async removeJob(id: string): Promise<void> {
-    if (!isAuthenticated()) return;
+    if (!isLoggedIn()) return;
 
     try {
       await deleteJob(id);
@@ -251,7 +256,7 @@ export const syncService = {
   },
 
   async saveInterview(interview: LocalInterviewRecord): Promise<void> {
-    if (!isAuthenticated()) return;
+    if (!isLoggedIn()) return;
 
     try {
       const existingInterviews = await getInterviews();
@@ -268,7 +273,7 @@ export const syncService = {
         });
       } else {
         await createInterview({
-          jobId: interview.jobId,
+          jobId: interview.jobId ?? undefined,
           companyName: interview.companyName,
           position: interview.position,
           round: interview.round,
@@ -285,7 +290,7 @@ export const syncService = {
   },
 
   async removeInterview(id: string): Promise<void> {
-    if (!isAuthenticated()) return;
+    if (!isLoggedIn()) return;
 
     try {
       await deleteInterview(id);
@@ -306,7 +311,7 @@ export const syncService = {
     summary: string,
     suggestions: string[]
   ): Promise<void> {
-    if (!isAuthenticated()) return;
+    if (!isLoggedIn()) return;
 
     try {
       await createMockInterview({

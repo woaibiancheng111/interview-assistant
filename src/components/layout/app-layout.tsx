@@ -12,11 +12,9 @@ import {
   Moon,
   Sun,
   LogOut,
-  User,
   LogIn,
 } from "lucide-react"
 import { useTheme } from "next-themes"
-import { cn } from "@/lib/utils"
 import { Button } from "@/components/ui/button"
 import { Separator } from "@/components/ui/separator"
 import {
@@ -44,11 +42,12 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
+import Link from "next/link"
 import { useEffect, useState } from "react"
+import { useHydration } from "@/hooks/use-hydration"
 import { useAuthStore } from "@/lib/store/auth-store"
 import { useQuestionStore } from "@/lib/store/question-store"
 import { useJobStore } from "@/lib/store/job-store"
-import { useInterviewStore } from "@/lib/store/interview-store"
 import { syncService } from "@/lib/store/sync-service"
 
 const navItems = [
@@ -145,11 +144,7 @@ function AppSidebar() {
 
 function ThemeToggle() {
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const mounted = useHydration()
 
   if (!mounted) {
     return <Button variant="ghost" size="icon"><Sun className="size-4" /></Button>
@@ -161,7 +156,7 @@ function ThemeToggle() {
 
   return (
     <Button variant="ghost" size="icon" onClick={toggleTheme}>
-      {theme === "dark" || theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches ? (
+      {theme === "dark" || (theme === "system" && window.matchMedia("(prefers-color-scheme: dark)").matches) ? (
         <Moon className="size-4" />
       ) : (
         <Sun className="size-4" />
@@ -275,17 +270,57 @@ function TopBar() {
   useDataSync()
 
   return (
-    <header className="flex h-14 items-center gap-4 border-b bg-background px-4">
+    <header className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-background/95 px-3 backdrop-blur sm:px-4">
       <SidebarTrigger />
-      <div className="flex-1" />
+      <div className="min-w-0 flex-1">
+        <span className="block truncate text-sm font-semibold md:hidden">CS 面试助手</span>
+      </div>
       <ThemeToggle />
       <UserMenu />
     </header>
   )
 }
 
+function MobileBottomNav() {
+  const pathname = usePathname()
+
+  return (
+    <nav className="fixed inset-x-0 bottom-0 z-40 border-t bg-background/95 px-2 pb-[env(safe-area-inset-bottom)] pt-1 backdrop-blur md:hidden">
+      <div className="grid grid-cols-5">
+        {navItems.map((item) => {
+          const active = item.href === "/" ? pathname === "/" : pathname.startsWith(item.href)
+          return (
+            <Link
+              key={item.href}
+              href={item.href}
+              className={`flex flex-col items-center justify-center gap-0.5 rounded-md px-1 py-2 text-[11px] ${
+                active ? "text-primary" : "text-muted-foreground"
+              }`}
+            >
+              <item.icon className="h-4 w-4" />
+              <span className="truncate">{item.title.replace("管理", "")}</span>
+            </Link>
+          )
+        })}
+      </div>
+    </nav>
+  )
+}
+
 export default function AppLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
+  const clearSession = useAuthStore((s) => s.clearSession)
+  const checkAuth = useAuthStore((s) => s.checkAuth)
+
+  useEffect(() => {
+    const handleLogout = () => clearSession()
+    window.addEventListener("auth:logout", handleLogout)
+    return () => window.removeEventListener("auth:logout", handleLogout)
+  }, [clearSession])
+
+  useEffect(() => {
+    checkAuth()
+  }, [checkAuth])
 
   if (pathname === "/login") {
     return <>{children}</>
@@ -297,7 +332,8 @@ export default function AppLayout({ children }: { children: React.ReactNode }) {
         <AppSidebar />
         <SidebarInset>
           <TopBar />
-          <main className="flex-1 overflow-auto">{children}</main>
+          <main className="flex-1 overflow-auto pb-16 md:pb-0">{children}</main>
+          <MobileBottomNav />
         </SidebarInset>
       </SidebarProvider>
     </TooltipProvider>

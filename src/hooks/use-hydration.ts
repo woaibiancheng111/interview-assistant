@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useSyncExternalStore } from "react";
 
 /**
  * 检测客户端水合是否完成。
@@ -10,11 +10,9 @@ import { useState, useEffect } from "react";
  * 水合完成后再显示真实的持久化数据。
  */
 export function useHydration() {
-  const [hydrated, setHydrated] = useState(false);
-
-  useEffect(() => {
-    setHydrated(true);
-  }, []);
-
-  return hydrated;
+  return useSyncExternalStore(
+    () => () => {},
+    () => true,
+    () => false
+  );
 }

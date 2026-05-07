@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useEffect, useState } from "react"
+import { useMemo } from "react"
 import { useHydration } from "@/hooks/use-hydration"
 import {
   BookOpen,
@@ -109,16 +109,12 @@ function StatCard({
 }
 
 function DailyChallenge() {
-  const [dailyQuestion, setDailyQuestion] = useState<typeof questions[0] | null>(null)
-
-  useEffect(() => {
+  const dailyQuestion = useMemo(() => {
     const today = new Date()
     const seed = today.getFullYear() * 10000 + (today.getMonth() + 1) * 100 + today.getDate()
     const index = seed % questions.length
-    setDailyQuestion(questions[index])
+    return questions[index]
   }, [])
-
-  if (!dailyQuestion) return null
 
   const difficultyMap = {
     easy: { label: "简单", variant: "secondary" as const },
@@ -406,7 +402,7 @@ export default function DashboardPage() {
   const stats = getStats()
   const { history } = useInterviewStore()
   const { jobList } = useJobStore()
-  const { personalInfo, resumeScore } = useResumeStore()
+  const { resumeScore } = useResumeStore()
 
   const completedQuestions = hydrated ? stats.completed : 0
   const avgInterviewScore =

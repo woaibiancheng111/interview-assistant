@@ -2,13 +2,11 @@
 
 import { useState, useMemo, use } from "react";
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { cn } from "@/lib/utils";
 import { useQuestionStore, type QuestionStatus } from "@/lib/store/question-store";
 import {
   type Difficulty,
   difficultyLabels,
-  questions,
 } from "@/lib/data/questions";
 
 import { Button } from "@/components/ui/button";
@@ -69,7 +67,6 @@ export default function QuestionDetailClient({
   params: Promise<{ id: string }>;
 }) {
   const { id } = use(params);
-  const router = useRouter();
   const {
     allQuestions,
     getQuestionStatus,
@@ -82,7 +79,7 @@ export default function QuestionDetailClient({
   const [showAnswer, setShowAnswer] = useState(false);
   const [showHints, setShowHints] = useState(false);
   const [currentHintIndex, setCurrentHintIndex] = useState(0);
-  const [userNote, setUserNote] = useState("");
+  const [noteDraft, setNoteDraft] = useState<{ questionId: string; value: string } | null>(null);
   const [noteSaved, setNoteSaved] = useState(false);
 
   const question = useMemo(
@@ -111,14 +108,6 @@ export default function QuestionDetailClient({
     };
   }, [question, allQuestions]);
 
-  // 初始化笔记
-  useMemo(() => {
-    if (question) {
-      const record = answerRecords[question.id];
-      setUserNote(record?.note ?? "");
-    }
-  }, [question, answerRecords]);
-
   if (!question) {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] text-muted-foreground">
@@ -134,6 +123,8 @@ export default function QuestionDetailClient({
 
   const status = getQuestionStatus(question.id);
   const favorite = isFavorite(question.id);
+  const savedNote = answerRecords[question.id]?.note ?? "";
+  const userNote = noteDraft?.questionId === question.id ? noteDraft.value : savedNote;
 
   const handleMark = (newStatus: QuestionStatus) => {
     markQuestion(question.id, newStatus, userNote);
@@ -153,20 +144,20 @@ export default function QuestionDetailClient({
   };
 
   return (
-    <div className="flex flex-col min-h-[calc(100vh-64px)]">
+    <div className="flex min-h-[calc(100vh-64px)] flex-col overflow-x-hidden pb-16 md:pb-0">
       {/* 顶部导航栏 */}
-      <div className="flex items-center justify-between border-b border-border bg-card px-4 py-2">
-        <div className="flex items-center gap-2">
+      <div className="flex flex-col gap-2 border-b border-border bg-card px-3 py-2 sm:flex-row sm:items-center sm:justify-between sm:px-4">
+        <div className="flex min-w-0 items-center gap-2">
           <Button variant="ghost" size="sm" render={<Link href="/questions" />} nativeButton={false}>
             <ArrowLeft className="size-4 mr-1" />
             返回题库
           </Button>
           <Separator orientation="vertical" className="h-4" />
-          <span className="text-sm text-muted-foreground">
+          <span className="truncate text-sm text-muted-foreground">
             {question.category}
           </span>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex items-center gap-2 self-end sm:self-auto">
           <Button
             variant="ghost"
             size="sm"
@@ -185,7 +176,7 @@ export default function QuestionDetailClient({
 
       {/* 内容区 */}
       <ScrollArea className="flex-1">
-        <div className="max-w-3xl mx-auto px-4 py-6 flex flex-col gap-6">
+        <div className="mx-auto flex max-w-3xl flex-col gap-6 px-3 py-5 sm:px-4 sm:py-6">
           {/* 标题区 */}
           <div>
             <div className="flex items-center gap-2 mb-2">
@@ -217,7 +208,7 @@ export default function QuestionDetailClient({
                 )}
               </div>
             </div>
-            <h1 className="text-2xl font-bold">{question.title}</h1>
+            <h1 className="text-xl font-bold leading-tight sm:text-2xl">{question.title}</h1>
             <div className="flex items-center gap-1.5 mt-2 flex-wrap">
               {question.tags.map((tag) => (
                 <Badge key={tag} variant="outline" className="text-xs">
@@ -232,7 +223,7 @@ export default function QuestionDetailClient({
           {/* 题目描述 */}
           <section>
             <h2 className="text-base font-semibold mb-3">题目描述</h2>
-            <div className="rounded-lg border border-border bg-muted/10 p-4">
+            <div className="overflow-x-auto rounded-lg border border-border bg-muted/10 p-4">
               <Markdown content={question.content} />
             </div>
           </section>
@@ -324,7 +315,9 @@ export default function QuestionDetailClient({
             </div>
             {showAnswer && (
               <div className="rounded-lg border border-border bg-muted/10 p-4">
-                <Markdown content={question.answer} />
+                <div className="overflow-x-auto">
+                  <Markdown content={question.answer} />
+                </div>
               </div>
             )}
           </section>
@@ -337,7 +330,7 @@ export default function QuestionDetailClient({
             <Textarea
               placeholder="记录你的解题思路、心得和笔记..."
               value={userNote}
-              onChange={(e) => setUserNote(e.target.value)}
+              onChange={(e) => setNoteDraft({ questionId: question.id, value: e.target.value })}
               className="min-h-[120px] resize-y"
             />
           </section>
@@ -379,18 +372,18 @@ export default function QuestionDetailClient({
           </section>
 
           {/* 上一题/下一题导航 */}
-          <div className="flex items-center justify-between pt-4 pb-8">
+          <div className="flex items-center justify-between gap-3 pt-4 pb-8">
             {prevQuestion ? (
-              <Button variant="outline" render={<Link href={`/questions/${prevQuestion.id}`} />} nativeButton={false}>
+              <Button variant="outline" className="min-w-0 max-w-[48%]" render={<Link href={`/questions/${prevQuestion.id}`} />} nativeButton={false}>
                 <ChevronLeft className="size-4 mr-1" />
-                {prevQuestion.title}
+                <span className="truncate">{prevQuestion.title}</span>
               </Button>
             ) : (
               <div />
             )}
             {nextQuestion ? (
-              <Button variant="outline" render={<Link href={`/questions/${nextQuestion.id}`} />} nativeButton={false}>
-                {nextQuestion.title}
+              <Button variant="outline" className="min-w-0 max-w-[48%]" render={<Link href={`/questions/${nextQuestion.id}`} />} nativeButton={false}>
+                <span className="truncate">{nextQuestion.title}</span>
                 <ChevronRight className="size-4 ml-1" />
               </Button>
             ) : (

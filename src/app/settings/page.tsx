@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { useTheme } from "next-themes"
 import {
   Settings,
@@ -12,11 +12,8 @@ import {
   Palette,
   Shield,
   Bot,
-  Key,
-  Eye,
-  EyeOff,
 } from "lucide-react"
-import { cn } from "@/lib/utils"
+import { useHydration } from "@/hooks/use-hydration"
 import { Button } from "@/components/ui/button"
 import {
   Card,
@@ -28,7 +25,6 @@ import {
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
 import { Switch } from "@/components/ui/switch"
-import { Input } from "@/components/ui/input"
 import {
   Select,
   SelectContent,
@@ -50,7 +46,6 @@ import { useInterviewStore } from "@/lib/store/interview-store"
 import { useJobStore } from "@/lib/store/job-store"
 import { useResumeStore } from "@/lib/store/resume-store"
 import { useSettingsStore } from "@/lib/store/settings-store"
-import { Badge } from "@/components/ui/badge"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 
 function SettingSection({
@@ -89,17 +84,11 @@ const DASHSCOPE_MODELS = [
 
 export default function SettingsPage() {
   const { theme, setTheme } = useTheme()
-  const [mounted, setMounted] = useState(false)
+  const mounted = useHydration()
   const [language, setLanguage] = useState("zh-CN")
   const [dailyReminder, setDailyReminder] = useState(true)
   const [autoSave, setAutoSave] = useState(true)
-  const [showApiKey, setShowApiKey] = useState(false)
-
-  const { aiSettings, setDashscopeApiKey, setDashscopeModel, resetAISettings } = useSettingsStore()
-
-  useEffect(() => {
-    setMounted(true)
-  }, [])
+  const { aiSettings, setDashscopeModel, resetAISettings } = useSettingsStore()
 
   const resetQuestionStore = useQuestionStore((s) => s.resetFilters)
   const resetInterviewStore = useInterviewStore((s) => s.resetInterview)
@@ -169,10 +158,8 @@ export default function SettingsPage() {
     e.target.value = ""
   }
 
-  const hasApiKey = aiSettings.dashscopeApiKey.trim().length > 0
-
   return (
-    <div className="p-4 md:p-6 lg:p-8 flex flex-col gap-6 max-w-3xl mx-auto">
+    <div className="mx-auto flex max-w-3xl flex-col gap-6 p-4 pb-20 md:p-6 lg:p-8">
       <div className="flex flex-col gap-1">
         <h1 className="text-2xl font-bold tracking-tight flex items-center gap-2">
           <Settings className="size-5" />
@@ -185,49 +172,21 @@ export default function SettingsPage() {
         <SettingSection
           icon={Bot}
           title="AI 服务配置"
-          description="配置百炼大模型 API Key 以启用 AI 简历优化功能"
+          description="AI Key 由服务器统一配置"
         >
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
-              <div className="flex flex-col gap-1">
-                <div className="flex items-center gap-2">
-                  <Label className="text-sm">API Key</Label>
-                  {hasApiKey && (
-                    <Badge variant="default" className="text-[10px]">已配置</Badge>
-                  )}
-                </div>
-                <span className="text-xs text-muted-foreground">
-                  百炼大模型 API Key，用于 AI 简历优化、关键词分析等功能
-                </span>
-              </div>
-            </div>
+            <p className="text-xs text-muted-foreground">
+              AI 简历优化使用服务器端配置的百炼 API Key。
+              如无法使用，请联系管理员检查服务端环境变量。
+            </p>
 
-            <div className="flex gap-2">
-              <div className="relative flex-1">
-                <Input
-                  type={showApiKey ? "text" : "password"}
-                  value={aiSettings.dashscopeApiKey}
-                  onChange={(e) => setDashscopeApiKey(e.target.value)}
-                  placeholder="sk-xxxxxxxxxxxxxxxx"
-                  className="pr-10"
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowApiKey(!showApiKey)}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
-                >
-                  {showApiKey ? <EyeOff className="size-4" /> : <Eye className="size-4" />}
-                </button>
-              </div>
-            </div>
-
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <div className="flex flex-col">
                 <Label className="text-sm">模型选择</Label>
                 <span className="text-xs text-muted-foreground">选择用于 AI 分析的模型版本</span>
               </div>
               <Select value={aiSettings.dashscopeModel} onValueChange={(v) => v && setDashscopeModel(v)}>
-                <SelectTrigger className="w-48">
+                <SelectTrigger className="w-full sm:w-48">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -249,24 +208,6 @@ export default function SettingsPage() {
               </Select>
             </div>
 
-            <div className="rounded-md bg-muted/50 p-3">
-              <div className="flex items-start gap-2">
-                <Key className="size-4 text-muted-foreground mt-0.5 shrink-0" />
-                <div className="flex flex-col gap-1">
-                  <span className="text-xs font-medium">如何获取 API Key？</span>
-                  <p className="text-xs text-muted-foreground">
-                    1. 访问 <a href="https://dashscope.console.aliyun.com/" target="_blank" rel="noopener noreferrer" className="text-primary hover:underline">百炼控制台</a>
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    2. 开通 DashScope 服务并创建 API Key
-                  </p>
-                  <p className="text-xs text-muted-foreground">
-                    3. 将 API Key 复制到上方输入框即可
-                  </p>
-                </div>
-              </div>
-            </div>
-
             <Separator />
 
             <Button variant="outline" size="sm" onClick={resetAISettings} className="w-fit">
@@ -281,11 +222,11 @@ export default function SettingsPage() {
           description="自定义应用的外观和主题"
         >
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <Label className="text-sm">主题模式</Label>
               {mounted ? (
                 <Select value={theme} onValueChange={handleThemeChange}>
-                  <SelectTrigger className="w-32">
+                  <SelectTrigger className="w-full sm:w-32">
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
@@ -295,13 +236,13 @@ export default function SettingsPage() {
                   </SelectContent>
                 </Select>
               ) : (
-                <div className="w-32 h-9 border border-border rounded-md opacity-50" />
+                <div className="h-9 w-full rounded-md border border-border opacity-50 sm:w-32" />
               )}
             </div>
-            <div className="flex items-center justify-between">
+            <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <Label className="text-sm">语言</Label>
               <Select value={language} onValueChange={(v) => v && setLanguage(v)}>
-                <SelectTrigger className="w-32">
+                <SelectTrigger className="w-full sm:w-32">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -319,7 +260,7 @@ export default function SettingsPage() {
           description="管理提醒和通知设置"
         >
           <div className="flex flex-col gap-4">
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex flex-col">
                 <Label className="text-sm">每日刷题提醒</Label>
                 <span className="text-xs text-muted-foreground">每天提醒你完成面试题练习</span>
@@ -327,7 +268,7 @@ export default function SettingsPage() {
               <Switch checked={dailyReminder} onCheckedChange={setDailyReminder} />
             </div>
             <Separator />
-            <div className="flex items-center justify-between">
+            <div className="flex items-center justify-between gap-4">
               <div className="flex flex-col">
                 <Label className="text-sm">自动保存</Label>
                 <span className="text-xs text-muted-foreground">自动保存你的答题记录和笔记</span>
@@ -343,13 +284,13 @@ export default function SettingsPage() {
           description="导出、导入或清除你的数据"
         >
           <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2">
+            <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
               <Button variant="outline" size="sm" onClick={handleExportData}>
                 <Download className="size-4 mr-1" />
                 导出数据
               </Button>
               <label className="cursor-pointer">
-                <Button variant="outline" size="sm" type="button" onClick={() => document.getElementById('import-file')?.click()}>
+                <Button variant="outline" size="sm" type="button" className="w-full sm:w-auto" onClick={() => document.getElementById('import-file')?.click()}>
                   <Upload className="size-4 mr-1" />
                   导入数据
                 </Button>
@@ -368,7 +309,7 @@ export default function SettingsPage() {
                 <Trash2 className="size-4 mr-1" />
                 清除所有数据
               </DialogTrigger>
-              <DialogContent>
+              <DialogContent className="max-w-[calc(100vw-2rem)] sm:max-w-lg">
                 <DialogHeader>
                   <DialogTitle>确认清除所有数据？</DialogTitle>
                   <DialogDescription>

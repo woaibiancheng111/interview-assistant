@@ -17,7 +17,6 @@ import {
   Filter,
   RotateCcw,
   ChevronDown,
-  ChevronUp,
   MapPin,
   DollarSign,
   ExternalLink,
@@ -41,7 +40,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Badge } from "@/components/ui/badge";
 import { Progress } from "@/components/ui/progress";
-import { Separator } from "@/components/ui/separator";
 import { ScrollArea } from "@/components/ui/scroll-area";
 import {
   Select,
@@ -55,7 +53,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogFooter,
   DialogClose,
 } from "@/components/ui/dialog";
@@ -526,7 +523,6 @@ function KanbanColumn({
   onEdit: (job: JobApplication) => void;
 }) {
   const config = STATUS_CONFIG[status];
-  const Icon = config.icon;
 
   return (
     <div className="flex flex-col gap-3">
@@ -537,7 +533,7 @@ function KanbanColumn({
           {jobs.length}
         </Badge>
       </div>
-      <ScrollArea className="h-[calc(100vh-320px)] min-h-[200px]">
+      <ScrollArea className="h-auto min-h-[120px] md:h-[calc(100vh-320px)] md:min-h-[200px]">
         <div className="flex flex-col gap-3 pr-3">
           {jobs.length === 0 ? (
             <div className="flex items-center justify-center rounded-lg border border-dashed p-6 text-xs text-muted-foreground">
@@ -823,10 +819,55 @@ function JobListView({
   jobs: JobApplication[];
   onEdit: (job: JobApplication) => void;
 }) {
-  const { removeJob, updateJobStatus, interviewRecords } = useJobStore();
+  const { removeJob, interviewRecords } = useJobStore();
 
   return (
-    <Card>
+    <>
+      <div className="flex flex-col gap-3 md:hidden">
+        {jobs.length === 0 ? (
+          <div className="rounded-lg border border-dashed p-8 text-center text-sm text-muted-foreground">
+            暂无数据
+          </div>
+        ) : (
+          jobs.map((job) => {
+            const config = STATUS_CONFIG[job.status];
+            const interviews = interviewRecords.filter((i) => i.jobId === job.id);
+            return (
+              <Card key={job.id}>
+                <CardContent className="flex flex-col gap-3 pt-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="truncate font-medium">{job.companyName}</p>
+                      <p className="truncate text-sm text-muted-foreground">{job.position}</p>
+                    </div>
+                    <Badge variant="outline" className="shrink-0 gap-1 text-xs">
+                      <div className={cn("h-2 w-2 rounded-full", config.color)} />
+                      {config.label}
+                    </Badge>
+                  </div>
+                  <div className="flex flex-wrap gap-2 text-xs text-muted-foreground">
+                    <span>{job.appliedDate}</span>
+                    {job.location && <span>{job.location}</span>}
+                    {job.salary && <span>{job.salary}</span>}
+                    {interviews.length > 0 && <span>{interviews.length} 次面试</span>}
+                  </div>
+                  <div className="flex gap-2">
+                    <Button variant="outline" size="sm" className="flex-1" onClick={() => onEdit(job)}>
+                      <Edit2 className="mr-2 h-3 w-3" />
+                      编辑
+                    </Button>
+                    <Button variant="outline" size="sm" className="flex-1 text-destructive" onClick={() => removeJob(job.id)}>
+                      <Trash2 className="mr-2 h-3 w-3" />
+                      删除
+                    </Button>
+                  </div>
+                </CardContent>
+              </Card>
+            );
+          })
+        )}
+      </div>
+      <Card className="hidden md:block">
       <CardContent className="p-0">
         <Table>
           <TableHeader>
@@ -853,9 +894,6 @@ function JobListView({
             ) : (
               jobs.map((job) => {
                 const config = STATUS_CONFIG[job.status];
-                const interviews = interviewRecords.filter(
-                  (i) => i.jobId === job.id
-                );
                 return (
                   <TableRow key={job.id}>
                     <TableCell className="font-medium">
@@ -912,14 +950,15 @@ function JobListView({
           </TableBody>
         </Table>
       </CardContent>
-    </Card>
+      </Card>
+    </>
   );
 }
 
 // ==================== 主页面 ====================
 
 export default function JobsPage() {
-  const { jobList, searchJobs, filterJobsByStatus, resetJobs } = useJobStore();
+  const { jobList, searchJobs, resetJobs } = useJobStore();
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<JobStatus | "all">("all");
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -972,22 +1011,22 @@ export default function JobsPage() {
   };
 
   return (
-    <div className="min-h-screen bg-background">
-      <div className="mx-auto max-w-7xl px-4 py-6">
+    <div className="min-h-screen bg-background pb-16 md:pb-0">
+      <div className="mx-auto max-w-7xl px-3 py-5 sm:px-4 sm:py-6">
         {/* 页面头部 */}
-        <div className="mb-6 flex items-center justify-between">
+        <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold">求职管理</h1>
             <p className="text-sm text-muted-foreground">
               跟踪你的求职进度和面试安排
             </p>
           </div>
-          <div className="flex gap-2">
+          <div className="flex gap-2 sm:justify-end">
             <Button variant="outline" size="sm" onClick={resetJobs}>
               <RotateCcw className="mr-2 h-4 w-4" />
               重置
             </Button>
-            <Button size="sm" onClick={handleAdd}>
+            <Button size="sm" className="flex-1 sm:flex-none" onClick={handleAdd}>
               <Plus className="mr-2 h-4 w-4" />
               添加岗位
             </Button>
@@ -1028,7 +1067,8 @@ export default function JobsPage() {
 
         {/* 主内容区域 */}
         <Tabs defaultValue="kanban">
-          <TabsList className="mb-4">
+          <div className="mb-4 overflow-x-auto">
+          <TabsList className="min-w-max">
             <TabsTrigger value="kanban">
               <Briefcase className="mr-2 h-4 w-4" />
               看板视图
@@ -1046,6 +1086,7 @@ export default function JobsPage() {
               统计仪表盘
             </TabsTrigger>
           </TabsList>
+          </div>
 
           {/* 看板视图 */}
           <TabsContent value="kanban">

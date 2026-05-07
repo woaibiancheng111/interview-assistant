@@ -1,12 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/server/prisma";
-import { generateToken } from "@/lib/server/jwt";
+import { generateToken, getJwtExpiresInSeconds } from "@/lib/server/jwt";
+import { rateLimit, getRateLimitHeaders } from "@/lib/server/rate-limit";
+import { normalizeString } from "@/lib/server/validation";
+
+const LOGIN_LIMIT = Number.parseInt(process.env.RATE_LIMIT_LOGIN || "5", 10);
+const LOGIN_WINDOW_SECONDS = Number.parseInt(
+  process.env.RATE_LIMIT_LOGIN_WINDOW || "60",
+  10
+);
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { username, password } = body;
+    const rateResult = await rateLimit(request, {
+      keyPrefix: "auth:login",
+      limit: LOGIN_LIMIT,
+      windowSeconds: LOGIN_WINDOW_SECONDS,
+    });
+
+    if (!rateResult.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "请求过于频繁，请稍后再试",
+        },
+        { status: 429, headers: getRateLimitHeaders(rateResult) }
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const username = normalizeString(body.username);
+    const password = normalizeString(body.password);
 
     if (!username || !password) {
       return NextResponse.json(
@@ -52,11 +77,10 @@ export async function POST(request: NextRequest) {
       email: user.email,
     });
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: "登录成功",
       data: {
-        token,
         user: {
           id: user.id,
           username: user.username,
@@ -64,6 +88,18 @@ export async function POST(request: NextRequest) {
         },
       },
     });
+
+    response.cookies.set({
+      name: "auth_token",
+      value: token,
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: getJwtExpiresInSeconds(),
+    });
+
+    return response;
   } catch (error) {
     console.error("Login error:", error);
     return NextResponse.json(

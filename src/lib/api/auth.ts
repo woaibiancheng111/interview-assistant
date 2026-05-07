@@ -1,4 +1,4 @@
-import { apiClient, setAuthToken, removeAuthToken, getAuthToken } from "./client";
+import { apiClient } from "./client";
 
 export interface User {
   id: string;
@@ -18,15 +18,11 @@ export interface RegisterRequest {
 }
 
 export interface LoginResponse {
-  token: string;
   user: User;
 }
 
 export async function login(data: LoginRequest): Promise<LoginResponse> {
   const response = await apiClient.post<LoginResponse>("/api/auth/login", data);
-  if (response.success && response.data) {
-    setAuthToken(response.data.token);
-  }
   return response.data!;
 }
 
@@ -36,11 +32,7 @@ export async function register(data: RegisterRequest): Promise<User> {
 }
 
 export async function logout(): Promise<void> {
-  const token = getAuthToken();
-  if (token) {
-    await apiClient.post("/api/auth/logout");
-  }
-  removeAuthToken();
+  await apiClient.post("/api/auth/logout");
 }
 
 export async function getCurrentUser(): Promise<User | null> {
@@ -52,6 +44,3 @@ export async function getCurrentUser(): Promise<User | null> {
   }
 }
 
-export function isAuthenticated(): boolean {
-  return !!getAuthToken();
-}

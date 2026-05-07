@@ -14,7 +14,7 @@ export async function GET(request: NextRequest) {
     const { searchParams } = new URL(request.url);
     const jobId = searchParams.get("jobId");
 
-    let where: Record<string, unknown> = {
+    const where: Record<string, unknown> = {
       userId: user.userId,
     };
 

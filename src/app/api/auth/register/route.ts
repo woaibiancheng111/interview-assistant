@@ -1,11 +1,37 @@
 import { NextRequest, NextResponse } from "next/server";
 import bcrypt from "bcryptjs";
 import prisma from "@/lib/server/prisma";
+import { rateLimit, getRateLimitHeaders } from "@/lib/server/rate-limit";
+import { normalizeString, isValidEmail, isStrongEnoughPassword } from "@/lib/server/validation";
+
+const REGISTER_LIMIT = Number.parseInt(process.env.RATE_LIMIT_REGISTER || "3", 10);
+const REGISTER_WINDOW_SECONDS = Number.parseInt(
+  process.env.RATE_LIMIT_REGISTER_WINDOW || "300",
+  10
+);
 
 export async function POST(request: NextRequest) {
   try {
-    const body = await request.json();
-    const { username, email, password } = body;
+    const rateResult = await rateLimit(request, {
+      keyPrefix: "auth:register",
+      limit: REGISTER_LIMIT,
+      windowSeconds: REGISTER_WINDOW_SECONDS,
+    });
+
+    if (!rateResult.allowed) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "请求过于频繁，请稍后再试",
+        },
+        { status: 429, headers: getRateLimitHeaders(rateResult) }
+      );
+    }
+
+    const body = await request.json().catch(() => ({}));
+    const username = normalizeString(body.username);
+    const email = normalizeString(body.email);
+    const password = normalizeString(body.password);
 
     if (!username || !email || !password) {
       return NextResponse.json(
@@ -27,7 +53,17 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    if (password.length < 6) {
+    if (!isValidEmail(email)) {
+      return NextResponse.json(
+        {
+          success: false,
+          message: "邮箱格式不正确",
+        },
+        { status: 400 }
+      );
+    }
+
+    if (!isStrongEnoughPassword(password, 6)) {
       return NextResponse.json(
         {
           success: false,

@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { User, login, logout, getCurrentUser, isAuthenticated, LoginRequest, RegisterRequest, register } from "@/lib/api";
+import { User, login, logout, getCurrentUser, LoginRequest, RegisterRequest, register } from "@/lib/api";
 
 interface AuthState {
   user: User | null;
@@ -11,11 +11,12 @@ interface AuthState {
   register: (credentials: RegisterRequest) => Promise<void>;
   logout: () => Promise<void>;
   checkAuth: () => Promise<boolean>;
+  clearSession: () => void;
 }
 
 export const useAuthStore = create<AuthState>()(
   persist(
-    (set, get) => ({
+    (set) => ({
       user: null,
       isLoggedIn: false,
       isLoading: false,
@@ -62,11 +63,6 @@ export const useAuthStore = create<AuthState>()(
       },
 
       checkAuth: async () => {
-        if (!isAuthenticated()) {
-          set({ user: null, isLoggedIn: false });
-          return false;
-        }
-
         try {
           const user = await getCurrentUser();
           if (user) {
@@ -80,6 +76,10 @@ export const useAuthStore = create<AuthState>()(
           set({ user: null, isLoggedIn: false });
           return false;
         }
+      },
+
+      clearSession: () => {
+        set({ user: null, isLoggedIn: false });
       },
     }),
     {

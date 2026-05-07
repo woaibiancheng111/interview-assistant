@@ -1,87 +1,139 @@
-# 🎓 CS 面试助手 (CS Interview Assistant)
+# CS 面试助手
 
-> 一站式计算机专业面试求职平台 —— 题库刷题 · AI 模拟面试 · 简历优化 · 求职管理
+支持本地使用和登录同步的全栈面试求职平台，覆盖题库刷题、模拟面试、简历优化、求职追踪和数据备份。未登录时数据保存在浏览器本地；登录后可通过服务端 API 同步到 MySQL。
 
-## ✨ 项目亮点 (Key Features)
+## 功能概览
 
-本项目是一款专门针对计算机专业学生和初高级开发者的 **全前端驱动面试求职辅助利器**。它极大地提升了备战面试的效率和体验：
+- 面试题库：分类筛选、收藏、刷题状态、题解阅读、个人笔记。
+- 模拟面试：技术面、HR 面、行为面试，支持评分、反馈和历史记录。
+- 简历管理：分步编辑、模板预览、基础评分、AI 简历优化和 JD 关键词匹配。
+- 求职管理：岗位看板、列表、面试时间线、求职漏斗统计。
+- 账号与同步：注册登录、JWT Cookie 鉴权、Prisma/MySQL 持久化、Redis 支持限流。
+- 移动端体验：核心页面已适配手机视图，包含底部导航、移动筛选和卡片化列表。
+- Docker 部署：内置 MySQL、Redis、应用容器和健康检查。
 
-* 🚀 **极速全栈体验，零后端负担** 
-  利用 Next.js 16.x App Router 与客户端缓存构建。所有核心数据（刷题记录、简历草稿、收藏夹等）均通过 `Zustand` 搭配 `persist` 在本地 `localStorage` 进行高性能持久化，做到打开即用，无需登录，甚至支持离线访问。
-* 📝 **富文本优雅阅读与代码高亮** 
-  所有题库和题解均使用 `@tailwindcss/typography` 结合 `react-markdown` 渲染，内置高保真 `github-dark` 代码高亮，无论是算法解析还是代码复现都能获得绝佳的阅读体验。
-* 🌓 **全局无缝状态同步与暗色模式** 
-  全面整合 `next-themes`，不仅提供了随心配置的明亮/暗黑/跟随系统三种主题环境，更保证了系统多标签页、根节点与各类深层面板间的 UI 状态实时双向绑定。
-* 🤖 **极客风 AI 模拟面试引擎** 
-  具备高度拟真度的面试评分系统：按知识维度客观计分（丢弃随机数惩罚，分数绝对公平）、根据用户的文字详细程度智能给分，并输出专业点评雷达图与雷达图能力维度的强弱项建议。
-* 💼 **Kanban 看板投递追踪** 
-  类似精简版 Trello 或 Notion，通过流畅的看板 UI，轻松拖拽记录、整理从“简历投递”到“拿到 Offer”的全生命周期状态转化，对自己的求职漏斗一目了然。
-* 🛡️ **支持数据自由迁移与完整保护** 
-  特有定制化序列化方案（完美解决 JavaScript `Set` 集合数据类型的序列化难题），一键即可无损导出所有刷题进度和收藏信息存为本地离线 JSON 包，且随时可以恢复导入，永远拥有数据的绝对控制权。
+## 技术栈
 
-## 🎯 核心功能模块
+- Next.js 16 App Router + React 19 + TypeScript
+- Tailwind CSS v4 + shadcn/ui + Lucide React
+- Zustand + localStorage 本地持久化
+- Prisma + MySQL
+- Redis + ioredis
+- DashScope/百炼 AI 简历分析
+- Docker Compose
 
-| 板块 | 功能描述 |
-|------|----------|
-| 📚 **面试题库** | 8 大垂直领域分类（数据结构、网络、数据库等）、46+ 核心高频精选题目，支持独立沉浸阅读模式和多维混合筛选、备忘笔记书写 |
-| 🎤 **模拟面试** | 三大方向覆盖：技术钻研面 / HR 综合评估 / 行为深挖面（STAR 法则）。附带全套回答评估与专项意见反馈 |
-| 📝 **简历管理** | 多重步骤式动态建立向导展示，具备 100% 连通真实数据的【动态健康度评分系统】，并内置高颜值经典简历模板 |
-| 💼 **求职追踪** | 通过可交互视图或面试时间线视图，将繁杂零散的面试排期理清，助你精准投递、有效复盘 |
-| ⚙️ **控制中心** | 支持全局一键清空记录、全量数据一键备份并迁移、主题环境管理 |
-
-## 🛠 技术栈
-
-* **Web 框架**：[Next.js 16.x](https://nextjs.org/) (App Router + Turbopack)
-* **核心语言**：[TypeScript](https://www.typescriptlang.org/) (5.x, 全面类型追踪)
-* **状态管理**：[Zustand](https://zustand-demo.pmnd.rs/) (结合中间件负责数据深度持久化控制)
-* **样式驱动**：[Tailwind CSS v4](https://tailwindcss.com/)
-* **组件引擎**：[shadcn/ui](https://ui.shadcn.com/) + `@base-ui/react` + `Lucide React`
-* **Markdown 解析**：`react-markdown` + `remark-gfm` + `rehype-highlight`
-
-## 🚀 快速开始
-
-### 环境依赖
-- **Node.js**: >= 18
-- **npm**: >= 9
-
-### 安装与运行
+## 本地开发
 
 ```bash
-# 克隆项目仓库
-git clone <仓库地址>
-cd interview-assistant
-
-# 极速拉取依赖
 npm install
-
-# 启动研发环境与监听热重载
+cp .env.example .env
 npm run dev
 ```
 
-成功后访问 [http://localhost:3000](http://localhost:3000) 即刻开始体验刷题。
+开发服务默认访问：
 
-## 📁 目录结构快览
+```text
+http://localhost:3000
+```
+
+如果需要使用登录同步、AI、限流等服务端能力，请确保 `.env` 中的 `DATABASE_URL`、`REDIS_URL`、`JWT_SECRET`、`BAILIAN_API_KEY` 已正确配置。
+
+## 质量检查
+
+```bash
+npm run lint
+npm run build
+```
+
+## Docker VPS 部署
+
+### 1. 准备服务器
+
+在 VPS 上安装 Docker 和 Docker Compose 插件，并开放应用端口或配置反向代理。
+
+### 2. 配置环境变量
+
+```bash
+cp .env.example .env
+```
+
+生产环境必须替换：
+
+- `JWT_SECRET`：使用长随机字符串，例如 `openssl rand -base64 48`
+- `MYSQL_PASSWORD` 和 `MYSQL_ROOT_PASSWORD`
+- `DATABASE_URL` 中的数据库密码
+- `NEXT_PUBLIC_APP_URL`：你的公网域名
+- `BAILIAN_API_KEY`：需要 AI 简历分析时填写
+
+### 3. 启动服务
+
+```bash
+docker compose up -d --build
+```
+
+应用容器启动时会自动执行：
+
+```bash
+prisma migrate deploy
+```
+
+### 4. 查看状态
+
+```bash
+docker compose ps
+docker compose logs -f app
+```
+
+健康检查地址：
+
+```text
+http://你的域名或服务器IP:3000/api/health
+```
+
+### 5. 反向代理建议
+
+生产环境建议使用 Nginx、Caddy 或云厂商负载均衡，将 HTTPS 域名代理到：
+
+```text
+http://127.0.0.1:3000
+```
+
+同时确保代理保留 `Host`、`X-Forwarded-For`、`X-Forwarded-Proto` 请求头。
+
+## 常用 Docker 命令
+
+```bash
+# 查看日志
+docker compose logs -f app
+
+# 重启应用
+docker compose restart app
+
+# 停止服务
+docker compose down
+
+# 停止并删除数据库卷，谨慎使用
+docker compose down -v
+```
+
+## 目录结构
 
 ```text
 src/
-├── app/                          # 原生 App Router 目录体系
-│   ├── layout.tsx                # App Root (装配 ThemeProvider)
-│   ├── page.tsx                  # Dashboard 看板 (全局数据统计)
-│   ├── globals.css               # 标准 CSS + 变量装配 + TW 插件引入
-│   ├── questions/                # 题库专属版块
-│   │   ├── page.tsx              # 筛选器和题库核心 List 渲染视图
-│   │   └── [id]/page.tsx         # 题目详情专用落地屏
-│   ├── interview/                # 面试场馆
-│   ├── resume/                   # 简历编辑器
-│   ├── jobs/                     # 投递进度追踪
-│   └── settings/                 # 设置与数据流接管
-├── components/
-│   ├── layout/app-layout.tsx     # 左侧导航 + 响应式顶部
-│   ├── theme-provider.tsx        # Next-Themes 桥接
-│   └── ui/                       # 大量原语/无头原子组件集成
-├── hooks/
-│   └── use-hydration.ts          # 用于平滑处理服务端渲染数据闪烁的自定义 Hook
-└── lib/
-    ├── data/                     # 系统内核静态知识库数据集
-    └── store/                    # Zustand Store 中心 (题目、面试历史、求职等业务容器)
+├── app/                 # 页面与 API Route
+├── components/          # 布局和 UI 组件
+├── hooks/               # 通用 Hooks
+├── lib/
+│   ├── api/             # 前端 API Client
+│   ├── data/            # 题库与面试静态数据
+│   ├── server/          # Prisma、Redis、鉴权、限流
+│   ├── services/        # AI 服务
+│   └── store/           # Zustand 状态管理
+└── prisma/              # Prisma schema 与迁移
 ```
+
+## 备注
+
+- 未登录用户仍可使用核心功能，数据保存在本地浏览器。
+- 登录后会尝试从服务端同步刷题、收藏、岗位、面试等数据。
+- Redis 不可用时，部分限流会降级为放行，应用不会因此崩溃。

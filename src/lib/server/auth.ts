@@ -10,7 +10,8 @@ export interface AuthUser {
 
 export async function getAuthenticatedUser(request: NextRequest): Promise<AuthUser | null> {
   const authHeader = request.headers.get("Authorization");
-  const token = getTokenFromAuthorizationHeader(authHeader);
+  const cookieToken = request.cookies.get("auth_token")?.value;
+  const token = cookieToken ?? getTokenFromAuthorizationHeader(authHeader);
   
   if (!token) {
     return null;

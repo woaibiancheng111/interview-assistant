@@ -1,13 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getTokenFromAuthorizationHeader } from "@/lib/server/jwt";
 import { safeRedisOperation } from "@/lib/server/redis";
+import { getJwtExpiresInSeconds } from "@/lib/server/jwt";
 
-const JWT_EXPIRES_IN_SECONDS = 7 * 24 * 60 * 60;
+const JWT_EXPIRES_IN_SECONDS = getJwtExpiresInSeconds();
 
 export async function POST(request: NextRequest) {
   try {
     const authHeader = request.headers.get("Authorization");
-    const token = getTokenFromAuthorizationHeader(authHeader);
+    const cookieToken = request.cookies.get("auth_token")?.value;
+    const token = cookieToken ?? getTokenFromAuthorizationHeader(authHeader);
 
     if (token) {
       await safeRedisOperation(
@@ -21,10 +23,22 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    return NextResponse.json({
+    const response = NextResponse.json({
       success: true,
       message: "已登出",
     });
+
+    response.cookies.set({
+      name: "auth_token",
+      value: "",
+      httpOnly: true,
+      secure: process.env.NODE_ENV === "production",
+      sameSite: "lax",
+      path: "/",
+      maxAge: 0,
+    });
+
+    return response;
   } catch (error) {
     console.error("Logout error:", error);
     return NextResponse.json(

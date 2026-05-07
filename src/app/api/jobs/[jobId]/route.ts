@@ -1,7 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAuthenticatedUser, createUnauthorizedResponse } from "@/lib/server/auth";
 import prisma from "@/lib/server/prisma";
-import { JobStatus } from "@prisma/client";
 
 export async function GET(
   request: NextRequest,

@@ -20,7 +20,7 @@ export interface JobApplication {
 export interface InterviewRecord {
   id: string;
   userId: string;
-  jobId: string;
+  jobId: string | null;
   companyName: string;
   position: string;
   round: string;
@@ -34,6 +34,7 @@ export interface InterviewRecord {
 }
 
 export interface CreateJobRequest {
+  id?: string;
   companyName: string;
   position: string;
   status?: JobStatus;
@@ -56,6 +57,7 @@ export interface UpdateJobRequest {
 }
 
 export interface CreateInterviewRequest {
+  id?: string;
   jobId?: string;
   companyName?: string;
   position?: string;
