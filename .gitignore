@@ -9,9 +9,12 @@
 !.yarn/plugins
 !.yarn/releases
 !.yarn/versions
-
+.kiro
 # testing
 /coverage
+
+# 抓取脚本的本地缓存
+/.cache
 
 # next.js
 /.next/

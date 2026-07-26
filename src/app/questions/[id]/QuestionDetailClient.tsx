@@ -27,7 +27,44 @@ import {
   ChevronLeft,
   ChevronRight,
   BookOpen,
+  ExternalLink,
 } from "lucide-react";
+import type { QuestionSource } from "@/lib/data/questions";
+
+// ==================== 开源题目署名 ====================
+function SourceNote({ source }: { source: QuestionSource }) {
+  return (
+    <div className="rounded-lg border border-dashed border-border bg-muted/20 p-3 text-xs text-muted-foreground">
+      <p className="flex flex-wrap items-center gap-1">
+        <span>本题内容来自开源项目</span>
+        <a
+          href={source.url}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-0.5 font-medium text-foreground underline underline-offset-2"
+        >
+          {source.repoName}
+          <ExternalLink className="size-3" />
+        </a>
+        <span>
+          （{source.repo}，版权归 {source.author} 所有）
+        </span>
+      </p>
+      <p className="mt-1">
+        授权协议：
+        <a
+          href={source.licenseUrl}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline underline-offset-2"
+        >
+          {source.license}
+        </a>
+        ，转载请保留原始署名。
+      </p>
+    </div>
+  );
+}
 
 // ==================== 难度颜色 ====================
 const difficultyColorMap: Record<Difficulty, string> = {
@@ -215,6 +252,11 @@ export default function QuestionDetailClient({
                   {tag}
                 </Badge>
               ))}
+              {question.source && (
+                <Badge variant="outline" className="text-xs text-muted-foreground">
+                  来源 · {question.source.repoName}
+                </Badge>
+              )}
             </div>
           </div>
 
@@ -228,10 +270,11 @@ export default function QuestionDetailClient({
             </div>
           </section>
 
-          <Separator />
-
-          {/* 提示区域 */}
-          <section>
+          {/* 提示区域：抓取来源的题目通常没有提示，直接隐藏整块 */}
+          {question.hints.length > 0 && (
+            <>
+              <Separator />
+              <section>
             <div className="flex items-center justify-between mb-3">
               <h2 className="text-base font-semibold flex items-center gap-2">
                 <Lightbulb className="size-4 text-yellow-500" />
@@ -287,7 +330,9 @@ export default function QuestionDetailClient({
                   ))}
               </div>
             )}
-          </section>
+              </section>
+            </>
+          )}
 
           <Separator />
 
@@ -313,6 +358,11 @@ export default function QuestionDetailClient({
                 )}
               </Button>
             </div>
+            {question.source && (
+              <div className="mb-3">
+                <SourceNote source={question.source} />
+              </div>
+            )}
             {showAnswer && (
               <div className="rounded-lg border border-border bg-muted/10 p-4">
                 <div className="overflow-x-auto">

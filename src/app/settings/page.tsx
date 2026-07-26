@@ -12,7 +12,16 @@ import {
   Palette,
   Shield,
   Bot,
+  BookOpen,
+  ExternalLink,
 } from "lucide-react"
+import {
+  curatedQuestions,
+  importedQuestions,
+  questions,
+  questionSources,
+  questionsGeneratedAt,
+} from "@/lib/data/questions"
 import { useHydration } from "@/hooks/use-hydration"
 import { Button } from "@/components/ui/button"
 import {
@@ -324,6 +333,63 @@ export default function SettingsPage() {
                 </DialogFooter>
               </DialogContent>
             </Dialog>
+          </div>
+        </SettingSection>
+
+        <SettingSection
+          icon={BookOpen}
+          title="题库来源"
+          description="开源题目的出处与授权协议"
+        >
+          <div className="flex flex-col gap-3 text-sm">
+            <div className="flex items-center justify-between">
+              <span className="text-muted-foreground">题目总数</span>
+              <span>
+                {questions.length} 道（精选 {curatedQuestions.length} · 开源{" "}
+                {importedQuestions.length}）
+              </span>
+            </div>
+            {questionSources.length === 0 ? (
+              <p className="text-xs text-muted-foreground">
+                当前未引入开源题库，可执行 <code>npm run questions:fetch</code> 抓取。
+              </p>
+            ) : (
+              <div className="flex flex-col gap-2">
+                {questionSources.map((source) => (
+                  <div
+                    key={source.id}
+                    className="flex flex-wrap items-center justify-between gap-1 rounded-lg border border-border px-3 py-2"
+                  >
+                    <a
+                      href={source.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="inline-flex items-center gap-1 font-medium underline underline-offset-2"
+                    >
+                      {source.name}
+                      <ExternalLink className="size-3" />
+                    </a>
+                    <span className="text-xs text-muted-foreground">
+                      {source.questionCount} 道 ·{" "}
+                      <a
+                        href={source.licenseUrl}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="underline underline-offset-2"
+                      >
+                        {source.license}
+                      </a>
+                    </span>
+                  </div>
+                ))}
+                <p className="text-xs text-muted-foreground">
+                  内容版权归各原作者所有，本站在保留署名与协议声明的前提下再分发。
+                  {questionsGeneratedAt
+                    ? ` 最近更新：${questionsGeneratedAt.slice(0, 10)}。`
+                    : ""}
+                </p>
+              </div>
+            )}
           </div>
         </SettingSection>
 

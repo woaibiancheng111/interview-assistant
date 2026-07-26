@@ -38,10 +38,48 @@ http://localhost:3000
 
 如果需要使用登录同步、AI、限流等服务端能力，请确保 `.env` 中的 `DATABASE_URL`、`REDIS_URL`、`JWT_SECRET`、`BAILIAN_API_KEY` 已正确配置。
 
+## 题库来源与合规
+
+题库由两部分组成：
+
+- **站内精选题**：`src/lib/data/questions.curated.ts`，人工维护。
+- **开源抓取题**：`src/lib/data/questions.generated.json`，由 `scripts/fetch-questions.ts` 从开源仓库抓取生成，每道题都带 `source`（仓库、原文链接、协议、作者）。
+
+抓取遵循以下规则，避免引入版权风险：
+
+1. 只访问公开的 GitHub API 与 `raw.githubusercontent.com`，不绕过任何访问控制，请求之间有节流；
+2. 仓库协议必须能被 GitHub 机器识别、落在白名单内（MIT / Apache-2.0 / BSD / ISC / CC0 / CC-BY / CC-BY-SA），且与来源配置中声明的协议一致，否则整个来源直接跳过；
+3. `NOASSERTION`、无 LICENSE、非商业（NC）、GPL 系仓库一律不纳入；
+4. 所有来源汇总在 [ATTRIBUTIONS.md](./ATTRIBUTIONS.md)，题目详情页也会展示原文链接与协议。
+
+重新抓取：
+
+```bash
+npm run questions:fetch
+```
+
+常用参数：
+
+```bash
+node scripts/fetch-questions.ts --only=leetcode   # 只抓某个来源
+node scripts/fetch-questions.ts --limit=5         # 每个来源只抓 5 篇文档
+node scripts/fetch-questions.ts --dry-run         # 只看报告不写盘
+node scripts/fetch-questions.ts --offline         # 只用 .cache 里的缓存
+```
+
+未设置 `GITHUB_TOKEN` 时 GitHub API 限额为 60 次/小时；设置后提升到 5000 次/小时：
+
+```bash
+GITHUB_TOKEN=ghp_xxx npm run questions:fetch
+```
+
+新增来源：在 `src/lib/data/ingest/sources.ts` 里添加一项配置（仓库、期望协议、解析器、目录），必要时在 `src/lib/data/ingest/parsers.ts` 中补一个解析器。题目 id 由「来源 id + 文档路径 + 锚点」哈希得到，重复抓取保持稳定，用户的刷题记录不会丢。
+
 ## 质量检查
 
 ```bash
 npm run lint
+npm run test
 npm run build
 ```
 
@@ -119,6 +157,8 @@ docker compose down -v
 ## 目录结构
 
 ```text
+scripts/
+└── fetch-questions.ts   # 开源题库抓取脚本
 src/
 ├── app/                 # 页面与 API Route
 ├── components/          # 布局和 UI 组件
@@ -126,6 +166,9 @@ src/
 ├── lib/
 │   ├── api/             # 前端 API Client
 │   ├── data/            # 题库与面试静态数据
+│   │   ├── ingest/      # 抓取管线：协议白名单、解析器、归一化、去重
+│   │   ├── questions.curated.ts     # 站内精选题
+│   │   └── questions.generated.json # 抓取产物
 │   ├── server/          # Prisma、Redis、鉴权、限流
 │   ├── services/        # AI 服务
 │   └── store/           # Zustand 状态管理
